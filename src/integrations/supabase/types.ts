@@ -14,7 +14,270 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      interview_configurations: {
+        Row: {
+          company_type: string | null
+          created_at: string
+          difficulty_level: string | null
+          duration_minutes: number | null
+          experience_level: string | null
+          focus_areas: string[] | null
+          id: string
+          interview_type: string | null
+          is_default: boolean | null
+          job_role: string | null
+          name: string
+          question_count: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_type?: string | null
+          created_at?: string
+          difficulty_level?: string | null
+          duration_minutes?: number | null
+          experience_level?: string | null
+          focus_areas?: string[] | null
+          id?: string
+          interview_type?: string | null
+          is_default?: boolean | null
+          job_role?: string | null
+          name: string
+          question_count?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_type?: string | null
+          created_at?: string
+          difficulty_level?: string | null
+          duration_minutes?: number | null
+          experience_level?: string | null
+          focus_areas?: string[] | null
+          id?: string
+          interview_type?: string | null
+          is_default?: boolean | null
+          job_role?: string | null
+          name?: string
+          question_count?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      practice_sessions: {
+        Row: {
+          completed_at: string | null
+          configuration_id: string | null
+          created_at: string
+          duration_seconds: number | null
+          feedback_summary: string | null
+          id: string
+          overall_score: number | null
+          questions_answered: number | null
+          session_type: string
+          started_at: string
+          status: string | null
+          total_questions: number | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          configuration_id?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          feedback_summary?: string | null
+          id?: string
+          overall_score?: number | null
+          questions_answered?: number | null
+          session_type: string
+          started_at?: string
+          status?: string | null
+          total_questions?: number | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          configuration_id?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          feedback_summary?: string | null
+          id?: string
+          overall_score?: number | null
+          questions_answered?: number | null
+          session_type?: string
+          started_at?: string
+          status?: string | null
+          total_questions?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_sessions_configuration_id_fkey"
+            columns: ["configuration_id"]
+            isOneToOne: false
+            referencedRelation: "interview_configurations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          email: string | null
+          experience_level: string | null
+          full_name: string | null
+          id: string
+          location: string | null
+          phone: string | null
+          preferred_industries: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          email?: string | null
+          experience_level?: string | null
+          full_name?: string | null
+          id?: string
+          location?: string | null
+          phone?: string | null
+          preferred_industries?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          email?: string | null
+          experience_level?: string | null
+          full_name?: string | null
+          id?: string
+          location?: string | null
+          phone?: string | null
+          preferred_industries?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      text_interviews: {
+        Row: {
+          ai_feedback: string | null
+          answered_at: string | null
+          created_at: string
+          id: string
+          question_number: number
+          question_text: string
+          score: number | null
+          session_id: string
+          time_taken_seconds: number | null
+          user_answer: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_feedback?: string | null
+          answered_at?: string | null
+          created_at?: string
+          id?: string
+          question_number: number
+          question_text: string
+          score?: number | null
+          session_id: string
+          time_taken_seconds?: number | null
+          user_answer?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_feedback?: string | null
+          answered_at?: string | null
+          created_at?: string
+          id?: string
+          question_number?: number
+          question_text?: string
+          score?: number | null
+          session_id?: string
+          time_taken_seconds?: number | null
+          user_answer?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "text_interviews_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "practice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_interviews: {
+        Row: {
+          ai_feedback: string | null
+          answered_at: string | null
+          audio_duration_seconds: number | null
+          clarity_score: number | null
+          confidence_score: number | null
+          created_at: string
+          id: string
+          question_number: number
+          question_text: string
+          score: number | null
+          session_id: string
+          speaking_pace_score: number | null
+          time_taken_seconds: number | null
+          user_answer_transcript: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_feedback?: string | null
+          answered_at?: string | null
+          audio_duration_seconds?: number | null
+          clarity_score?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          question_number: number
+          question_text: string
+          score?: number | null
+          session_id: string
+          speaking_pace_score?: number | null
+          time_taken_seconds?: number | null
+          user_answer_transcript?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_feedback?: string | null
+          answered_at?: string | null
+          audio_duration_seconds?: number | null
+          clarity_score?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          question_number?: number
+          question_text?: string
+          score?: number | null
+          session_id?: string
+          speaking_pace_score?: number | null
+          time_taken_seconds?: number | null
+          user_answer_transcript?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_interviews_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "practice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

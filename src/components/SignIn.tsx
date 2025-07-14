@@ -4,6 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, Mail, Brain } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface SignInProps {
   onSignIn: (user: any) => void;
@@ -12,43 +15,67 @@ interface SignInProps {
 
 export const SignIn = ({ onSignIn, onBack }: SignInProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const { toast } = useToast();
 
-  const handleGoogleSignIn = async () => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     
     try {
-      // Check if Google Sign-In is available (safer type checking)
-      if (typeof window !== 'undefined' && (window as any).google) {
-        // Real Google Sign-In would go here
-        console.log("Google Sign-In API available");
+      if (isSignUp) {
+        const redirectUrl = `${window.location.origin}/`;
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: redirectUrl,
+            data: {
+              full_name: fullName
+            }
+          }
+        });
+
+        if (error) throw error;
+
+        if (data.user) {
+          toast({
+            title: "Account Created Successfully!",
+            description: "Please check your email to verify your account.",
+          });
+        }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+
+        if (data.user && data.session) {
+          toast({
+            title: "Welcome back to Neuro Ask!",
+            description: `Successfully signed in as ${data.user.email}`,
+          });
+          
+          onSignIn({
+            id: data.user.id,
+            name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0],
+            email: data.user.email,
+            picture: data.user.user_metadata?.avatar_url,
+            provider: "email",
+            verified: data.user.email_confirmed_at ? true : false
+          });
+        }
       }
-      
-      // For now, simulate the sign-in process with more realistic flow
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Generate a more realistic mock user with better demo experience
-      const mockUser = {
-        id: `user_${Date.now()}`,
-        name: "Alex Johnson",
-        email: "alex.johnson@gmail.com",
-        picture: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`,
-        provider: "google",
-        joinedAt: new Date().toISOString(),
-        verified: true
-      };
-      
+    } catch (error: any) {
+      console.error("Auth error:", error);
       toast({
-        title: "Welcome to Neuro Ask!",
-        description: `Successfully signed in as ${mockUser.name}`,
-      });
-      
-      onSignIn(mockUser);
-    } catch (error) {
-      console.error("Sign-in error:", error);
-      toast({
-        title: "Sign In Failed",
-        description: "Unable to sign in at the moment. Please try again later.",
+        title: isSignUp ? "Sign Up Failed" : "Sign In Failed",
+        description: error.message || "Please try again later.",
         variant: "destructive",
       });
     } finally {
@@ -102,21 +129,73 @@ export const SignIn = ({ onSignIn, onBack }: SignInProps) => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <Button
-                  onClick={handleGoogleSignIn}
-                  disabled={isLoading}
-                  className="w-full h-12 bg-white/90 border border-white/20 text-gray-700 hover:bg-white hover:border-white/40 backdrop-blur-sm"
-                  size="lg"
-                >
-                  <Mail className="h-5 w-5 mr-3" />
-                  {isLoading ? "Signing in..." : "Continue with Google"}
-                </Button>
+                <form onSubmit={handleEmailAuth} className="space-y-4">
+                  {isSignUp && (
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName" className="text-white/90">Full Name</Label>
+                      <Input
+                        id="fullName"
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        required
+                        className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-cyan-400 focus:ring-cyan-400/20"
+                        placeholder="Enter your full name"
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-white/90">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-cyan-400 focus:ring-cyan-400/20"
+                      placeholder="Enter your email"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-white/90">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-cyan-400 focus:ring-cyan-400/20"
+                      placeholder="Enter your password"
+                    />
+                  </div>
+                  
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full h-12 bg-white/90 border border-white/20 text-gray-700 hover:bg-white hover:border-white/40 backdrop-blur-sm"
+                    size="lg"
+                  >
+                    <Mail className="h-5 w-5 mr-3" />
+                    {isLoading ? (isSignUp ? "Creating Account..." : "Signing In...") : (isSignUp ? "Create Account" : "Sign In")}
+                  </Button>
+                </form>
+                
+                <div className="text-center">
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => setIsSignUp(!isSignUp)}
+                    className="text-cyan-300 hover:text-cyan-200"
+                  >
+                    {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+                  </Button>
+                </div>
                 
                 <div className="text-center text-sm text-white/70">
-                  <p>By signing in, you agree to our Terms of Service and Privacy Policy</p>
-                  <p className="mt-2 text-xs text-cyan-300">
-                    Note: This is a demo. In production, real Google OAuth would be integrated.
-                  </p>
+                  <p>By {isSignUp ? "creating an account" : "signing in"}, you agree to our Terms of Service and Privacy Policy</p>
                 </div>
               </CardContent>
             </Card>
