@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, User, Settings, LogOut, Edit } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UserProfileProps {
   user: any;
@@ -16,6 +17,7 @@ interface UserProfileProps {
 export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingConfig, setIsEditingConfig] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -31,6 +33,54 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
   });
   const { toast } = useToast();
 
+  // Load existing profile data on component mount
+  useEffect(() => {
+    loadProfileData();
+  }, []);
+
+  const loadProfileData = async () => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return;
+
+      // Load account info
+      const { data: accountData } = await supabase
+        .from('account_stuff')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .single();
+
+      if (accountData) {
+        setProfileData({
+          name: accountData.full_name || '',
+          email: accountData.email || '',
+          industry: accountData.preferred_industries?.[0] || '',
+          level: accountData.experience_level || '',
+          preferredType: ''
+        });
+      }
+
+      // Load profile configuration (interview settings)
+      const { data: profileConfig } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .eq('is_default', true)
+        .single();
+
+      if (profileConfig) {
+        setInterviewConfig({
+          industry: profileConfig.company_type || 'Software Engineering',
+          level: profileConfig.experience_level || 'Mid Level',
+          type: profileConfig.interview_type || 'Technical',
+          duration: `${profileConfig.duration_minutes || 30} minutes`
+        });
+      }
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+    }
+  };
+
   const industries = [
     "Software Engineering", "Marketing", "Finance", "Healthcare", 
     "Sales", "Consulting", "Data Science", "Design", "Operations", "HR"
@@ -39,21 +89,85 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
   const levels = ["Entry Level", "Mid Level", "Senior Level", "Executive"];
   const types = ["Behavioral", "Technical", "Mixed"];
 
-  const handleSave = () => {
-    // Simulate saving profile
-    toast({
-      title: "Profile Updated",
-      description: "Your profile has been successfully updated.",
-    });
-    setIsEditing(false);
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+
+      // Update account_stuff table
+      const { error: accountError } = await supabase
+        .from('account_stuff')
+        .upsert({
+          user_id: currentUser.id,
+          full_name: profileData.name,
+          email: profileData.email,
+          experience_level: profileData.level,
+          preferred_industries: profileData.industry ? [profileData.industry] : []
+        });
+
+      if (accountError) throw accountError;
+
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been successfully updated.",
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveConfig = () => {
-    toast({
-      title: "Interview Configuration Updated",
-      description: "Your interview preferences have been successfully updated.",
-    });
-    setIsEditingConfig(false);
+  const handleSaveConfig = async () => {
+    setLoading(true);
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+
+      // Parse duration to get minutes
+      const durationMinutes = parseInt(interviewConfig.duration.replace(' minutes', ''));
+
+      // Update or insert profile configuration
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: currentUser.id,
+          name: 'Default Configuration',
+          company_type: interviewConfig.industry,
+          experience_level: interviewConfig.level,
+          interview_type: interviewConfig.type.toLowerCase(),
+          duration_minutes: durationMinutes,
+          is_default: true
+        });
+
+      if (profileError) throw profileError;
+
+      toast({
+        title: "Interview Configuration Updated",
+        description: "Your interview preferences have been successfully updated.",
+      });
+      setIsEditingConfig(false);
+    } catch (error) {
+      console.error('Error saving interview configuration:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update interview configuration. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -218,9 +332,10 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
                     <div className="flex space-x-3">
                       <Button 
                         onClick={handleSave}
+                        disabled={loading}
                         className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
                       >
-                        Save Changes
+                        {loading ? "Saving..." : "Save Changes"}
                       </Button>
                       <Button 
                         onClick={() => setIsEditing(false)}
@@ -345,9 +460,10 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
                     <div className="flex space-x-3">
                       <Button 
                         onClick={handleSaveConfig}
+                        disabled={loading}
                         className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
                       >
-                        Save Configuration
+                        {loading ? "Saving..." : "Save Configuration"}
                       </Button>
                       <Button 
                         onClick={() => setIsEditingConfig(false)}

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import Vapi from "@vapi-ai/web";
 import { analyzeInterviewWithGemini } from "@/utils/geminiAnalytics";
 import { AlertCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface QuickSessionProps {
   onBack: () => void;
@@ -34,6 +35,7 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [isEnding, setIsEnding] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   
   // Voice-specific state
   const [vapi, setVapi] = useState<Vapi | null>(null);
@@ -223,13 +225,23 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
     };
   }, [isActive, timeLeft, isCompleted, isEnding, sessionType, vapi, isCallActive]);
 
-  const startTextSession = () => {
-    setIsActive(true);
-    setSessionType("text");
-    toast({
-      title: "Text Session Started",
-      description: "Answer the questions by typing your responses.",
-    });
+  const startTextSession = async () => {
+    try {
+      await createPracticeSession("text");
+      setIsActive(true);
+      setSessionType("text");
+      toast({
+        title: "Text Session Started",
+        description: "Answer the questions by typing your responses.",
+      });
+    } catch (error) {
+      console.error('Failed to start text session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start session. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const startVoiceSession = async () => {
@@ -252,6 +264,7 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
     }
 
     try {
+      await createPracticeSession("voice");
       const currentLanguage = languages.find(lang => lang.code === selectedLanguage);
       
       const assistantConfig = {
@@ -354,6 +367,59 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
     }
   };
 
+  const createPracticeSession = async (type: "text" | "voice") => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data, error } = await supabase
+        .from('practice_sessions')
+        .insert({
+          user_id: currentUser.id,
+          session_type: type === "text" ? "text" : "voice",
+          status: 'in_progress',
+          total_questions: currentQuestions.length,
+          questions_answered: 0,
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setSessionId(data.id);
+    } catch (error) {
+      console.error('Error creating practice session:', error);
+      throw error;
+    }
+  };
+
+  const updatePracticeSession = async (finalAnswers: string[], stats: any) => {
+    if (!sessionId) return;
+
+    try {
+      const answeredCount = finalAnswers.filter(answer => answer && answer.trim().length > 0).length;
+      const durationSeconds = 300 - timeLeft;
+
+      const { error } = await supabase
+        .from('practice_sessions')
+        .update({
+          status: 'completed',
+          questions_answered: answeredCount,
+          overall_score: stats?.overallScore ? stats.overallScore / 100 : null,
+          feedback_summary: stats?.detailedFeedback || null,
+          duration_seconds: durationSeconds,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', sessionId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating practice session:', error);
+    }
+  };
+
   const completeSession = async () => {
     setIsActive(false);
     setIsCompleted(true);
@@ -390,13 +456,16 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
       const analysis = await analyzeInterviewWithGemini(detailedInterviewData);
       
       setSessionStats(analysis);
+      
+      // Save session data to database
+      await updatePracticeSession(finalAnswers, analysis);
     } catch (error) {
       console.error('Analysis failed:', error);
       // Enhanced fallback stats based on actual performance
       const answeredCount = finalAnswers.filter(answer => answer && answer.trim().length > 0).length;
       const completionRate = (answeredCount / currentQuestions.length) * 100;
       
-      setSessionStats({
+      const fallbackStats = {
         overallScore: Math.max(60, Math.floor(completionRate * 0.8 + Math.random() * 15)),
         skillBreakdown: {
           communication: Math.max(65, Math.floor(completionRate * 0.75 + Math.random() * 20)),
@@ -407,7 +476,12 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
         strengths: answeredCount > 2 ? ["Clear communication", "Good examples", "Well-structured responses"] : ["Participated actively", "Showed engagement"],
         weaknesses: answeredCount < 3 ? ["Complete all questions", "Provide more details"] : ["Could be more specific", "Practice timing"],
         detailedFeedback: `You completed ${answeredCount} out of ${currentQuestions.length} questions in this ${sessionType} session. ${answeredCount === currentQuestions.length ? "Excellent completion rate!" : "Try to complete all questions in future sessions."} Focus on providing detailed examples and practicing your delivery.`
-      });
+      };
+      
+      setSessionStats(fallbackStats);
+      
+      // Save session data to database with fallback stats
+      await updatePracticeSession(finalAnswers, fallbackStats);
     } finally {
       setIsAnalyzing(false);
     }
