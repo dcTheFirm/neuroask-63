@@ -45,7 +45,7 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
 
       // Load account info
       const { data: accountData } = await supabase
-        .from('account_stuff')
+        .from('User_accounts')
         .select('*')
         .eq('user_id', currentUser.id)
         .single();
@@ -62,7 +62,7 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
 
       // Load profile configuration (interview settings)
       const { data: profileConfig } = await supabase
-        .from('profiles')
+        .from('interview_configurations')
         .select('*')
         .eq('user_id', currentUser.id)
         .eq('is_default', true)
@@ -97,9 +97,9 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
         throw new Error('User not authenticated');
       }
 
-      // Update account_stuff table
+      // Update User_accounts table
       const { error: accountError } = await supabase
-        .from('account_stuff')
+        .from('User_accounts')
         .upsert({
           user_id: currentUser.id,
           full_name: profileData.name,
@@ -140,7 +140,7 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
 
       // Update or insert profile configuration
       const { error: profileError } = await supabase
-        .from('profiles')
+        .from('interview_configurations')
         .upsert({
           user_id: currentUser.id,
           name: 'Default Configuration',

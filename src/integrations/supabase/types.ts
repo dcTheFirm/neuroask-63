@@ -14,46 +14,52 @@ export type Database = {
   }
   public: {
     Tables: {
-      account_stuff: {
+      interview_configurations: {
         Row: {
-          avatar_url: string | null
-          bio: string | null
+          company_type: string | null
           created_at: string
-          email: string | null
+          difficulty_level: string | null
+          duration_minutes: number | null
           experience_level: string | null
-          full_name: string | null
+          focus_areas: string[] | null
           id: string
-          location: string | null
-          phone: string | null
-          preferred_industries: string[] | null
+          interview_type: string | null
+          is_default: boolean | null
+          job_role: string | null
+          name: string
+          question_count: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          avatar_url?: string | null
-          bio?: string | null
+          company_type?: string | null
           created_at?: string
-          email?: string | null
+          difficulty_level?: string | null
+          duration_minutes?: number | null
           experience_level?: string | null
-          full_name?: string | null
+          focus_areas?: string[] | null
           id?: string
-          location?: string | null
-          phone?: string | null
-          preferred_industries?: string[] | null
+          interview_type?: string | null
+          is_default?: boolean | null
+          job_role?: string | null
+          name: string
+          question_count?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          avatar_url?: string | null
-          bio?: string | null
+          company_type?: string | null
           created_at?: string
-          email?: string | null
+          difficulty_level?: string | null
+          duration_minutes?: number | null
           experience_level?: string | null
-          full_name?: string | null
+          focus_areas?: string[] | null
           id?: string
-          location?: string | null
-          phone?: string | null
-          preferred_industries?: string[] | null
+          interview_type?: string | null
+          is_default?: boolean | null
+          job_role?: string | null
+          name?: string
+          question_count?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -110,61 +116,10 @@ export type Database = {
             foreignKeyName: "practice_sessions_configuration_id_fkey"
             columns: ["configuration_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "interview_configurations"
             referencedColumns: ["id"]
           },
         ]
-      }
-      profiles: {
-        Row: {
-          company_type: string | null
-          created_at: string
-          difficulty_level: string | null
-          duration_minutes: number | null
-          experience_level: string | null
-          focus_areas: string[] | null
-          id: string
-          interview_type: string | null
-          is_default: boolean | null
-          job_role: string | null
-          name: string
-          question_count: number | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          company_type?: string | null
-          created_at?: string
-          difficulty_level?: string | null
-          duration_minutes?: number | null
-          experience_level?: string | null
-          focus_areas?: string[] | null
-          id?: string
-          interview_type?: string | null
-          is_default?: boolean | null
-          job_role?: string | null
-          name: string
-          question_count?: number | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          company_type?: string | null
-          created_at?: string
-          difficulty_level?: string | null
-          duration_minutes?: number | null
-          experience_level?: string | null
-          focus_areas?: string[] | null
-          id?: string
-          interview_type?: string | null
-          is_default?: boolean | null
-          job_role?: string | null
-          name?: string
-          question_count?: number | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       text_interviews: {
         Row: {
@@ -215,6 +170,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      User_accounts: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          email: string | null
+          experience_level: string | null
+          full_name: string | null
+          id: string
+          location: string | null
+          phone: string | null
+          preferred_industries: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          email?: string | null
+          experience_level?: string | null
+          full_name?: string | null
+          id?: string
+          location?: string | null
+          phone?: string | null
+          preferred_industries?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          email?: string | null
+          experience_level?: string | null
+          full_name?: string | null
+          id?: string
+          location?: string | null
+          phone?: string | null
+          preferred_industries?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       voice_interviews: {
         Row: {

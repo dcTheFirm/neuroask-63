@@ -7,6 +7,7 @@ import { ArrowLeft, Mic, MicOff, Phone, PhoneOff, Volume2, AlertCircle, Globe, X
 import { useState, useEffect, useRef } from "react";
 import Vapi from "@vapi-ai/web";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VoiceInterviewProps {
   onBack: () => void;
@@ -29,9 +30,11 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
   const [hasError, setHasError] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [isEnding, setIsEnding] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const { toast } = useToast();
   const initializeAttempted = useRef(false);
   const stopRequested = useRef(false);
+  const questionCounter = useRef(0);
 
   const languages = [
     { code: "en", name: "English", vapiLocale: "en-US" as const },
@@ -79,14 +82,32 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           });
         });
 
-        vapiInstance.on("call-end", () => {
+        vapiInstance.on("call-end", async () => {
           console.log("Call ended");
           setIsCallActive(false);
           setIsEnding(false);
+          
+          // Update session completion
+          if (sessionId) {
+            try {
+              await supabase
+                .from('practice_sessions')
+                .update({
+                  status: 'completed',
+                  completed_at: new Date().toISOString(),
+                  duration_seconds: callDuration,
+                  questions_answered: questionCounter.current
+                })
+                .eq('id', sessionId);
+            } catch (error) {
+              console.error('Error updating session:', error);
+            }
+          }
+          
           if (!stopRequested.current) {
             toast({
               title: "Interview Completed",
-              description: "Your interview session has ended.",
+              description: "Your interview session has ended and been saved.",
             });
           }
           setTimeout(() => onComplete(), 1000);
@@ -98,6 +119,12 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           if (message.type === "transcript" && message.transcript) {
             const messageText = `${message.role === "user" ? "You" : "Interviewer"}: ${message.transcript}`;
             setConversationMessages(prev => [...prev, messageText]);
+            
+            // Save voice interview data
+            if (sessionId && message.role === "user") {
+              questionCounter.current += 1;
+              saveVoiceInterviewData(message.transcript, questionCounter.current);
+            }
             
             // Check for stop requests from user
             if (message.role === "user") {
@@ -329,6 +356,11 @@ Start with: "Hello! Thank you for joining us today. I'm excited to learn more ab
       console.log("Starting Vapi call with config:", assistantConfig);
       setConversationMessages([]);
       stopRequested.current = false;
+      questionCounter.current = 0;
+      
+      // Initialize session before starting
+      await initializeSession();
+      
       await vapi.start(assistantConfig);
     } catch (error) {
       console.error("Failed to start interview:", error);
@@ -378,6 +410,51 @@ Start with: "Hello! Thank you for joining us today. I'm excited to learn more ab
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const initializeSession = async () => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return;
+
+      const { data, error } = await supabase
+        .from('practice_sessions')
+        .insert({
+          user_id: currentUser.id,
+          session_type: 'voice',
+          status: 'in_progress',
+          total_questions: 10,
+          questions_answered: 0,
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setSessionId(data.id);
+    } catch (error) {
+      console.error('Error initializing session:', error);
+    }
+  };
+
+  const saveVoiceInterviewData = async (transcript: string, questionNum: number) => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser || !sessionId) return;
+
+      await supabase
+        .from('voice_interviews')
+        .insert({
+          user_id: currentUser.id,
+          session_id: sessionId,
+          question_number: questionNum,
+          question_text: "Voice interview question",
+          user_answer_transcript: transcript,
+          answered_at: new Date().toISOString()
+        });
+    } catch (error) {
+      console.error('Error saving voice interview data:', error);
+    }
   };
 
   return (

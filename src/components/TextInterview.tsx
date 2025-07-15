@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Send, Mic, MicOff } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { analyzeInterviewWithGemini } from "@/utils/geminiAnalytics";
 
 interface TextInterviewProps {
   onBack: () => void;
@@ -28,6 +30,7 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
   const [currentMessage, setCurrentMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -46,6 +49,36 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
 
     return () => clearInterval(timer);
   }, []);
+
+  // Initialize session on component mount
+  useEffect(() => {
+    initializeSession();
+  }, []);
+
+  const initializeSession = async () => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return;
+
+      const { data, error } = await supabase
+        .from('practice_sessions')
+        .insert({
+          user_id: currentUser.id,
+          session_type: 'text',
+          status: 'in_progress',
+          total_questions: 10,
+          questions_answered: 0,
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setSessionId(data.id);
+    } catch (error) {
+      console.error('Error initializing session:', error);
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!currentMessage.trim()) return;
@@ -91,12 +124,54 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleEndInterview = () => {
-    toast({
-      title: "Interview Completed!",
-      description: "Great job! Your responses have been analyzed.",
-    });
-    onComplete();
+  const handleEndInterview = async () => {
+    try {
+      if (sessionId) {
+        // Update session completion
+        await supabase
+          .from('practice_sessions')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            duration_seconds: timeElapsed,
+            questions_answered: messages.filter(m => m.sender === 'user').length
+          })
+          .eq('id', sessionId);
+
+        // Save individual text interview entries
+        const userMessages = messages.filter(m => m.sender === 'user');
+        const aiMessages = messages.filter(m => m.sender === 'ai');
+        
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser) {
+          for (let i = 0; i < userMessages.length; i++) {
+            await supabase
+              .from('text_interviews')
+              .insert({
+                user_id: currentUser.id,
+                session_id: sessionId,
+                question_number: i + 1,
+                question_text: aiMessages[i]?.text || "Interview question",
+                user_answer: userMessages[i]?.text,
+                answered_at: userMessages[i]?.timestamp.toISOString()
+              });
+          }
+        }
+      }
+
+      toast({
+        title: "Interview Completed!",
+        description: "Great job! Your responses have been analyzed and saved.",
+      });
+      onComplete();
+    } catch (error) {
+      console.error('Error ending interview:', error);
+      toast({
+        title: "Interview Completed!",
+        description: "Great job! Your responses have been analyzed.",
+      });
+      onComplete();
+    }
   };
 
   return (

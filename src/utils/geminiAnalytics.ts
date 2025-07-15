@@ -1,5 +1,6 @@
 
-const GEMINI_API_KEY = "AIzaSyBwOdkC1Ko_01gCvYzyDXieKrdGHbG7VWA";
+// Get API key from environment or use fallback for demo
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyBwOdkC1Ko_01gCvYzyDXieKrdGHbG7VWA";
 
 interface SessionData {
   questions: string[];
