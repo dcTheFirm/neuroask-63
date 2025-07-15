@@ -96,14 +96,8 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
   ];
 
   const validateInterviewConfig = () => {
-    if (!interviewConfig.industry || !interviewConfig.level || !interviewConfig.type || !interviewConfig.duration) {
-      toast({
-        title: "Interview Configuration Required",
-        description: "Please set up your interview configuration first by going back to setup.",
-        variant: "destructive",
-      });
-      return false;
-    }
+    // Always allow interviews to proceed
+    // The interview components will handle default values if config is empty
     return true;
   };
 

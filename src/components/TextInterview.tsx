@@ -19,10 +19,20 @@ interface TextInterviewProps {
 }
 
 export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInterviewProps) => {
+  // Get config with defaults
+  const getConfigWithDefaults = () => ({
+    industry: interviewConfig.industry || "Software Engineering",
+    level: interviewConfig.level || "Mid-level", 
+    type: interviewConfig.type || "Behavioral",
+    duration: interviewConfig.duration || "15 minutes"
+  });
+
+  const config = getConfigWithDefaults();
+
   const [messages, setMessages] = useState<Array<{id: number, text: string, sender: 'user' | 'ai', timestamp: Date}>>([
     {
       id: 1,
-      text: `Hello! I'm your AI interviewer for today's ${interviewConfig.type || 'behavioral'} interview in ${interviewConfig.industry || 'Software Engineering'}. Let's start with our first question: Tell me about yourself and why you're interested in this role.`,
+      text: `Hello! I'm your AI interviewer for today's ${config.type} interview in ${config.industry}. Let's start with our first question: Tell me about yourself and why you're interested in this ${config.level} role.`,
       sender: 'ai',
       timestamp: new Date()
     }
@@ -199,7 +209,7 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-white text-reveal">AI Text Interview</h1>
-                <p className="text-white/80 text-reveal">{interviewConfig.industry || "General"} • {formatTime(timeElapsed)}</p>
+                <p className="text-white/80 text-reveal">{config.industry} • {formatTime(timeElapsed)}</p>
               </div>
             </div>
             <Button 

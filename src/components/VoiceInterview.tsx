@@ -252,6 +252,14 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
   const getDurationInMinutes = () => {
     return parseInt(interviewConfig.duration?.split(' ')[0] || '15');
   };
+  
+  // Get config with defaults
+  const getConfigWithDefaults = () => ({
+    industry: interviewConfig.industry || "Software Engineering",
+    level: interviewConfig.level || "Mid-level", 
+    type: interviewConfig.type || "Behavioral",
+    duration: interviewConfig.duration || "15 minutes"
+  });
 
   const startInterview = async () => {
     if (!vapi || !isInitialized) {
@@ -274,10 +282,11 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
 
     const durationMinutes = getDurationInMinutes();
     const currentLanguage = languages.find(lang => lang.code === selectedLanguage);
+    const config = getConfigWithDefaults();
 
     // Enhanced assistant configuration with language support
     const assistantConfig = {
-      name: `${interviewConfig.type} Interview Assistant`,
+      name: `${config.type} Interview Assistant`,
       model: {
         provider: "openai" as const,
         model: "gpt-4" as const,
@@ -285,11 +294,11 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           {
             role: "system" as const,
             content: selectedLanguage === "hi" 
-              ? `आप एक अनुभवी ${interviewConfig.industry} साक्षात्कारकर्ता हैं जो ${interviewConfig.level} पद के लिए ${interviewConfig.type} साक्षात्कार ले रहे हैं। साक्षात्कार लगभग ${durationMinutes} मिनट का होना चाहिए।
+              ? `आप एक अनुभवी ${config.industry} साक्षात्कारकर्ता हैं जो ${config.level} पद के लिए ${config.type} साक्षात्कार ले रहे हैं। साक्षात्कार लगभग ${durationMinutes} मिनट का होना चाहिए।
 
 आपकी भूमिका:
 - एक गर्मजोशी भरे, पेशेवर अभिवादन के साथ शुरुआत करें
-- उद्योग (${interviewConfig.industry}) और स्तर (${interviewConfig.level}) के आधार पर प्रासंगिक साक्षात्कार प्रश्न पूछें
+- उद्योग (${config.industry}) और स्तर (${config.level}) के आधार पर प्रासंगिक साक्षात्कार प्रश्न पूछें
 - उत्तरों को ध्यान से सुनें और विचारशील फॉलो-अप प्रश्न पूछें
 - बातचीत को प्राकृतिक, पेशेवर और आकर्षक रखें
 - साक्षात्कार को ${durationMinutes}-मिनट की समय सीमा में फिट करने के लिए गति निर्धारित करें
@@ -306,12 +315,12 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
 - उनके उत्तरों में रुचि दिखाएं
 - एक सहायक लेकिन पेशेवर स्वर बनाए रखें
 
-शुरुआत इसके साथ करें: "नमस्ते! आज हमारे साथ जुड़ने के लिए धन्यवाद। मैं ${interviewConfig.industry} में आपके बारे में और आपके अनुभव के बारे में जानने के लिए उत्साहित हूं। आइए शुरुआत करते हैं।"`
-              : `You are an experienced ${interviewConfig.industry} interviewer conducting a ${interviewConfig.type} interview for a ${interviewConfig.level} position. The interview should last approximately ${durationMinutes} minutes.
+शुरुआत इसके साथ करें: "नमस्ते! आज हमारे साथ जुड़ने के लिए धन्यवाद। मैं ${config.industry} में आपके बारे में और आपके अनुभव के बारे में जानने के लिए उत्साहित हूं। आइए शुरुआत करते हैं।"`
+              : `You are an experienced ${config.industry} interviewer conducting a ${config.type} interview for a ${config.level} position. The interview should last approximately ${durationMinutes} minutes.
 
 Your role:
 - Start with a warm, professional greeting
-- Ask relevant interview questions based on the industry (${interviewConfig.industry}) and level (${interviewConfig.level})
+- Ask relevant interview questions based on the industry (${config.industry}) and level (${config.level})
 - Listen carefully to responses and ask thoughtful follow-up questions
 - Keep the conversation natural, professional, and engaging
 - Pace the interview to fit the ${durationMinutes}-minute timeframe
@@ -330,7 +339,7 @@ Guidelines:
 - Maintain a supportive but professional tone
 - If they seem nervous, be encouraging
 
-Start with: "Hello! Thank you for joining us today. I'm excited to learn more about you and your experience in ${interviewConfig.industry}. Let's begin with you telling me a bit about yourself and what interests you about this ${interviewConfig.level} position."`
+Start with: "Hello! Thank you for joining us today. I'm excited to learn more about you and your experience in ${config.industry}. Let's begin with you telling me a bit about yourself and what interests you about this ${config.level} position."`
           }
         ],
         temperature: 0.7,
@@ -343,8 +352,8 @@ Start with: "Hello! Thank you for joining us today. I'm excited to learn more ab
         similarityBoost: 0.8
       },
       firstMessage: selectedLanguage === "hi" 
-        ? `नमस्ते! आज हमारे साथ जुड़ने के लिए धन्यवाद। मैं ${interviewConfig.industry} में आपके बारे में और आपके अनुभव के बारे में जानने के लिए उत्साहित हूं। आइए शुरुआत करते हैं - क्या आप अपने बारे में थोड़ा बता सकते हैं?`
-        : `Hello! Thank you for joining us today. I'm excited to learn more about you and your experience in ${interviewConfig.industry}. Let's begin - can you tell me a bit about yourself and what interests you about this ${interviewConfig.level} position?`,
+        ? `नमस्ते! आज हमारे साथ जुड़ने के लिए धन्यवाद। मैं ${config.industry} में आपके बारे में और आपके अनुभव के बारे में जानने के लिए उत्साहित हूं। आइए शुरुआत करते हैं - क्या आप अपने बारे में थोड़ा बता सकते हैं?`
+        : `Hello! Thank you for joining us today. I'm excited to learn more about you and your experience in ${config.industry}. Let's begin - can you tell me a bit about yourself and what interests you about this ${config.level} position?`,
       transcriber: {
         provider: "deepgram" as const,
         model: "nova-2" as const,
