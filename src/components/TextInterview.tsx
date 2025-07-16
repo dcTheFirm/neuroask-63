@@ -148,22 +148,30 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
           })
           .eq('id', sessionId);
 
-        // Save individual text interview entries
+        // Save individual text interview entries properly paired
         const userMessages = messages.filter(m => m.sender === 'user');
         const aiMessages = messages.filter(m => m.sender === 'ai');
         
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (currentUser) {
           for (let i = 0; i < userMessages.length; i++) {
+            // Find the corresponding AI question for this user response
+            // AI messages are before user messages, so we look for the AI message at index i
+            const correspondingQuestion = aiMessages[i]?.text || "Interview question";
+            const userResponse = userMessages[i]?.text || "";
+            
+            console.log(`Saving text interview - Q${i + 1}: "${correspondingQuestion}" A: "${userResponse}"`);
+            
             await supabase
               .from('text_interviews')
               .insert({
                 user_id: currentUser.id,
                 session_id: sessionId,
                 question_number: i + 1,
-                question_text: aiMessages[i]?.text || "Interview question",
-                user_answer: userMessages[i]?.text,
-                answered_at: userMessages[i]?.timestamp.toISOString()
+                question_text: correspondingQuestion,
+                user_answer: userResponse,
+                answered_at: userMessages[i]?.timestamp.toISOString(),
+                time_taken_seconds: Math.floor((userMessages[i]?.timestamp.getTime() - aiMessages[i]?.timestamp.getTime()) / 1000) || 0
               });
           }
         }

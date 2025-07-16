@@ -116,12 +116,12 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
         vapiInstance.on("message", (message: any) => {
           console.log("Vapi message:", message);
           
-          if (message.type === "transcript" && message.transcript) {
+          if (message.type === "transcript" && message.transcript && message.transcriptType === "final") {
             const messageText = `${message.role === "user" ? "You" : "Interviewer"}: ${message.transcript}`;
             setConversationMessages(prev => [...prev, messageText]);
             
-            // Save voice interview data
-            if (sessionId && message.role === "user") {
+            // Save voice interview data for user responses only
+            if (sessionId && message.role === "user" && message.transcript.trim()) {
               questionCounter.current += 1;
               saveVoiceInterviewData(message.transcript, questionCounter.current);
             }
@@ -446,21 +446,31 @@ Start with: "Hello! Thank you for joining us today. I'm excited to learn more ab
     }
   };
 
-  const saveVoiceInterviewData = async (transcript: string, questionNum: number) => {
+  const saveVoiceInterviewData = async (transcript: string, questionNumber: number) => {
+    if (!sessionId) return;
+    
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser || !sessionId) return;
+      if (!currentUser) return;
+
+      // Get the last AI question from conversation messages
+      const aiMessages = conversationMessages.filter(msg => msg.startsWith("Interviewer:"));
+      const lastQuestion = aiMessages[aiMessages.length - 1]?.replace("Interviewer: ", "") || "Interview question";
 
       await supabase
         .from('voice_interviews')
         .insert({
           user_id: currentUser.id,
           session_id: sessionId,
-          question_number: questionNum,
-          question_text: "Voice interview question",
+          question_number: questionNumber,
+          question_text: lastQuestion,
           user_answer_transcript: transcript,
-          answered_at: new Date().toISOString()
+          answered_at: new Date().toISOString(),
+          audio_duration_seconds: 0, // Will be updated if needed
+          time_taken_seconds: callDuration
         });
+      
+      console.log(`Saved voice interview data for question ${questionNumber}: ${transcript}`);
     } catch (error) {
       console.error('Error saving voice interview data:', error);
     }
