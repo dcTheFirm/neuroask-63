@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      dashboard_analytics: {
+        Row: {
+          average_score: number | null
+          created_at: string
+          current_streak: number
+          hours_practiced: number
+          id: string
+          last_session_date: string | null
+          total_sessions: number
+          updated_at: string
+          user_id: string
+          week_start_date: string
+          weekly_completed: number
+          weekly_goal: number
+        }
+        Insert: {
+          average_score?: number | null
+          created_at?: string
+          current_streak?: number
+          hours_practiced?: number
+          id?: string
+          last_session_date?: string | null
+          total_sessions?: number
+          updated_at?: string
+          user_id: string
+          week_start_date?: string
+          weekly_completed?: number
+          weekly_goal?: number
+        }
+        Update: {
+          average_score?: number | null
+          created_at?: string
+          current_streak?: number
+          hours_practiced?: number
+          id?: string
+          last_session_date?: string | null
+          total_sessions?: number
+          updated_at?: string
+          user_id?: string
+          week_start_date?: string
+          weekly_completed?: number
+          weekly_goal?: number
+        }
+        Relationships: []
+      }
       interview_configurations: {
         Row: {
           company_type: string | null

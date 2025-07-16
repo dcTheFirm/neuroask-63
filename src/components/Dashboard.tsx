@@ -3,8 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Mic, Play, Clock, TrendingUp, Award, Calendar, BarChart3, Phone } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { RandomPractice } from "@/components/RandomPractice";
 import { QuickSession } from "@/components/QuickSession";
 import { SessionReview } from "@/components/SessionReview";
@@ -26,73 +27,89 @@ interface DashboardProps {
 export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview, user, onProfile, interviewConfig }: DashboardProps) => {
   const [currentView, setCurrentView] = useState<'dashboard' | 'random-practice' | 'quick-session' | 'session-review'>('dashboard');
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
+  const [dashboardAnalytics, setDashboardAnalytics] = useState<any>(null);
+  const [recentSessions, setRecentSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const recentSessions = [
-    {
-      id: 1,
-      type: "Behavioral",
-      industry: interviewConfig.industry || "Software Engineering",
-      date: "2024-01-15",
-      score: 85,
-      duration: "12 min",
-      feedback: "Great use of STAR method. Your responses were well-structured and provided clear examples of your experience.",
-      questions: [
-        "Tell me about a time when you had to work with a difficult team member.",
-        "Describe a situation where you had to meet a tight deadline.",
-        "Give me an example of when you had to learn something new quickly."
-      ],
-      answers: [
-        "I once worked with a team member who was resistant to feedback...",
-        "During my last project, we had to deliver a feature in half the expected time...",
-        "When I started my current role, I had to learn React Native in two weeks..."
-      ]
-    },
-    {
-      id: 2,
-      type: "Technical",
-      industry: interviewConfig.industry || "Software Engineering",
-      date: "2024-01-14",
-      score: 78,
-      duration: "18 min",
-      feedback: "Good problem-solving approach. Consider explaining your thought process more clearly and discussing time complexity.",
-      questions: [
-        "How would you implement a LRU cache?",
-        "Explain the difference between REST and GraphQL.",
-        "What are the benefits of using TypeScript?"
-      ],
-      answers: [
-        "I would use a combination of a hash map and doubly linked list...",
-        "REST is an architectural style while GraphQL is a query language...",
-        "TypeScript provides static type checking which helps catch errors..."
-      ]
-    },
-    {
-      id: 3,
-      type: "HR/Cultural",
-      industry: interviewConfig.industry || "Software Engineering",
-      date: "2024-01-12",
-      score: 92,
-      duration: "8 min",
-      feedback: "Excellent cultural fit responses. You demonstrated strong alignment with company values and clear career goals.",
-      questions: [
-        "Why do you want to work here?",
-        "Where do you see yourself in 5 years?",
-        "What motivates you in your work?"
-      ],
-      answers: [
-        "I'm excited about your company's mission to democratize technology...",
-        "In 5 years, I see myself in a senior technical role...",
-        "I'm motivated by solving complex problems that have real impact..."
-      ]
-    }
-  ];
+  // Load dashboard analytics and recent sessions
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) {
+          setLoading(false);
+          return;
+        }
+
+        // Load dashboard analytics
+        const { data: analytics } = await supabase
+          .from('dashboard_analytics')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .maybeSingle();
+
+        setDashboardAnalytics(analytics);
+
+        // Load recent practice sessions
+        const { data: sessions } = await supabase
+          .from('practice_sessions')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (sessions) {
+          const formattedSessions = sessions.map((session, index) => ({
+            id: session.id,
+            type: session.session_type || "Practice",
+            industry: interviewConfig.industry || "Software Engineering",
+            date: new Date(session.created_at).toLocaleDateString(),
+            score: Math.round(session.overall_score || 0),
+            duration: session.duration_seconds ? `${Math.round(session.duration_seconds / 60)} min` : "N/A",
+            feedback: session.feedback_summary || "Session completed successfully.",
+            questions: ["Question data will be available after session completion"],
+            answers: ["Answer data will be available after session completion"]
+          }));
+          setRecentSessions(formattedSessions);
+        }
+
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        setLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, [interviewConfig.industry]);
 
   const stats = [
-    { label: "Total Sessions", value: "24", icon: <Calendar className="h-5 w-5" />, color: "from-blue-500 to-cyan-500" },
-    { label: "Average Score", value: "85%", icon: <TrendingUp className="h-5 w-5" />, color: "from-green-500 to-emerald-500" },
-    { label: "Hours Practiced", value: "12.5", icon: <Clock className="h-5 w-5" />, color: "from-purple-500 to-pink-500" },
-    { label: "Streak", value: "7 days", icon: <Award className="h-5 w-5" />, color: "from-orange-500 to-red-500" }
+    { 
+      label: "Total Sessions", 
+      value: dashboardAnalytics?.total_sessions?.toString() || "0", 
+      icon: <Calendar className="h-5 w-5" />, 
+      color: "from-blue-500 to-cyan-500" 
+    },
+    { 
+      label: "Average Score", 
+      value: dashboardAnalytics?.average_score ? `${Math.round(dashboardAnalytics.average_score)}%` : "0%", 
+      icon: <TrendingUp className="h-5 w-5" />, 
+      color: "from-green-500 to-emerald-500" 
+    },
+    { 
+      label: "Hours Practiced", 
+      value: dashboardAnalytics?.hours_practiced ? dashboardAnalytics.hours_practiced.toFixed(1) : "0.0", 
+      icon: <Clock className="h-5 w-5" />, 
+      color: "from-purple-500 to-pink-500" 
+    },
+    { 
+      label: "Streak", 
+      value: dashboardAnalytics?.current_streak ? `${dashboardAnalytics.current_streak} days` : "0 days", 
+      icon: <Award className="h-5 w-5" />, 
+      color: "from-orange-500 to-red-500" 
+    }
   ];
 
   const validateInterviewConfig = () => {
@@ -239,7 +256,14 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {recentSessions.map((session) => (
+                  {loading ? (
+                    <div className="text-white/70 text-center py-8">Loading sessions...</div>
+                  ) : recentSessions.length === 0 ? (
+                    <div className="text-white/70 text-center py-8">
+                      No practice sessions yet. Start your first interview to see results here!
+                    </div>
+                  ) : (
+                    recentSessions.map((session) => (
                     <Card key={session.id} className="bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 hover:shadow-xl transition-all duration-300 fade-in">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-3">
@@ -273,7 +297,8 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                    ))
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -355,11 +380,16 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Progress value={60} className="mb-3 bg-white/20" />
+                  <Progress 
+                    value={dashboardAnalytics?.weekly_completed ? (dashboardAnalytics.weekly_completed / (dashboardAnalytics.weekly_goal || 5)) * 100 : 0} 
+                    className="mb-3 bg-white/20" 
+                  />
                   <div className="flex justify-between items-center">
-                    <span className="text-black text-sm font-medium">3 of 5 completed</span>
+                    <span className="text-black text-sm font-medium">
+                      {dashboardAnalytics?.weekly_completed || 0} of {dashboardAnalytics?.weekly_goal || 5} completed
+                    </span>
                     <Badge className="bg-purple-500/30 text-purple-200 border-purple-500/40 font-semibold">
-                      60%
+                      {dashboardAnalytics?.weekly_completed ? Math.round((dashboardAnalytics.weekly_completed / (dashboardAnalytics.weekly_goal || 5)) * 100) : 0}%
                     </Badge>
                   </div>
                 </CardContent>

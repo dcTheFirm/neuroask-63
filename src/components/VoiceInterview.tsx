@@ -116,63 +116,75 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
         vapiInstance.on("message", (message: any) => {
           console.log("Vapi message:", message);
           
-          if (message.type === "transcript" && message.transcript && message.transcriptType === "final") {
-            const messageText = `${message.role === "user" ? "You" : "Interviewer"}: ${message.transcript}`;
-            setConversationMessages(prev => [...prev, messageText]);
+          // Handle all transcript types to improve voice recognition
+          if (message.type === "transcript" && message.transcript) {
+            // Log all transcripts for debugging
+            console.log(`Transcript (${message.transcriptType}):`, message.transcript, "Role:", message.role);
             
-            // Save voice interview data for user responses only
-            if (sessionId && message.role === "user" && message.transcript.trim()) {
-              questionCounter.current += 1;
-              saveVoiceInterviewData(message.transcript, questionCounter.current);
-            }
-            
-            // Check for stop requests from user
-            if (message.role === "user") {
-              const transcript = message.transcript.toLowerCase();
-              const stopKeywords = [
-                "stop interview", "end interview", "stop this interview", 
-                "end this interview", "i want to stop", "please stop",
-                "साक्षात्कार बंद करो", "साक्षात्कार समाप्त करो", "रोको"
-              ];
+            // Only save final transcripts to avoid duplicates
+            if (message.transcriptType === "final") {
+              const messageText = `${message.role === "user" ? "You" : "Interviewer"}: ${message.transcript}`;
+              setConversationMessages(prev => [...prev, messageText]);
               
-              const shouldStop = stopKeywords.some(keyword => transcript.includes(keyword));
-              
-              if (shouldStop && !stopRequested.current) {
-                console.log("User requested to stop the interview");
-                stopRequested.current = true;
-                setTimeout(() => {
-                  if (vapi && isCallActive) {
-                    vapi.stop();
-                  }
-                }, 1000);
+              // Save voice interview data for user responses only
+              if (sessionId && message.role === "user" && message.transcript.trim()) {
+                questionCounter.current += 1;
+                saveVoiceInterviewData(message.transcript, questionCounter.current);
               }
             }
+          }
+          
+          // Enhanced speech detection for better voice recognition
+          if (message.type === "speech-update") {
+            console.log("Speech update:", message.status, "Role:", message.role);
+          }
+          
+          // Check for stop requests from user - only if transcript exists
+          if (message.type === "transcript" && message.transcript && message.role === "user") {
+            const transcript = message.transcript.toLowerCase();
+            const stopKeywords = [
+              "stop interview", "end interview", "stop this interview", 
+              "end this interview", "i want to stop", "please stop",
+              "साक्षात्कार बंद करो", "साक्षात्कार समाप्त करो", "रोको"
+            ];
             
-            // Check if AI is concluding the interview
-            if (message.role === "assistant") {
-              const transcript = message.transcript.toLowerCase();
-              const conclusionKeywords = [
-                "thank you for your time",
-                "this concludes our interview",
-                "we've reached the end",
-                "interview is complete",
-                "thank you for joining us today",
-                "आपका समय देने के लिए धन्यवाद",
-                "यह हमारा साक्षात्कार समाप्त होता है"
-              ];
-              
-              const isConclusion = conclusionKeywords.some(keyword => 
-                transcript.includes(keyword)
-              );
-              
-              if (isConclusion && !stopRequested.current) {
-                console.log("AI is concluding the interview");
-                setTimeout(() => {
-                  if (vapi && isCallActive) {
-                    vapi.stop();
-                  }
-                }, 3000);
-              }
+            const shouldStop = stopKeywords.some(keyword => transcript.includes(keyword));
+            
+            if (shouldStop && !stopRequested.current) {
+              console.log("User requested to stop the interview");
+              stopRequested.current = true;
+              setTimeout(() => {
+                if (vapi && isCallActive) {
+                  vapi.stop();
+                }
+              }, 1000);
+            }
+          }
+          
+          // Check if AI is concluding the interview - only if transcript exists
+          if (message.type === "transcript" && message.transcript && message.role === "assistant") {
+            const transcript = message.transcript.toLowerCase();
+            const conclusionKeywords = [
+              "thank you for your time",
+              "this concludes our interview",
+              "we've reached the end",
+              "interview is complete",
+              "thank you for joining us today",
+              "आपका समय देने के लिए धन्यवाद",
+              "यह हमारा साक्षात्कार समाप्त होता है"
+            ];
+            
+            const isConclusion = conclusionKeywords.some(keyword => 
+              transcript.includes(keyword)
+            );
+            
+            if (isConclusion && !stopRequested.current) {
+              console.log("AI is concluding the interview");
+              setTimeout(() => {
+                if (vapi && isCallActive) {
+                  vapi.stop();
+                }
+              }, 3000);
             }
           }
           
@@ -357,7 +369,8 @@ Start with: "Hello! Thank you for joining us today. I'm excited to learn more ab
       transcriber: {
         provider: "deepgram" as const,
         model: "nova-2" as const,
-        language: currentLanguage?.vapiLocale || ("en-US" as const)
+        language: currentLanguage?.vapiLocale || ("en-US" as const),
+        keywords: ["interview", "question", "answer", "experience", "project", "challenge"]
       }
     };
 
