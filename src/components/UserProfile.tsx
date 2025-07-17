@@ -7,6 +7,7 @@ import { ArrowLeft, User, Settings, LogOut, Edit } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { AccountStats } from "@/components/AccountStats";
 interface UserProfileProps {
   user: any;
   onBack: () => void;
@@ -64,10 +65,10 @@ export const UserProfile = ({
         });
       }
 
-      // Load profile configuration (interview settings)
+      // Load profile configuration (interview settings) from user_profiles table
       const {
         data: profileConfig
-      } = await supabase.from('interview_configurations').select('*').eq('user_id', currentUser.id).eq('is_default', true).single();
+      } = await supabase.from('user_profiles').select('*').eq('user_id', currentUser.id).eq('is_default', true).single();
       if (profileConfig) {
         setInterviewConfig({
           industry: profileConfig.company_type || 'Software Engineering',
@@ -137,17 +138,20 @@ export const UserProfile = ({
       // Parse duration to get minutes
       const durationMinutes = parseInt(interviewConfig.duration.replace(' minutes', ''));
 
-      // Update or insert profile configuration
+      // Update or insert profile configuration in user_profiles table with all profile data
       const {
         error: profileError
-      } = await supabase.from('interview_configurations').upsert({
+      } = await supabase.from('user_profiles').upsert({
         user_id: currentUser.id,
         name: 'Default Configuration',
         company_type: interviewConfig.industry,
         experience_level: interviewConfig.level,
         interview_type: interviewConfig.type.toLowerCase(),
         duration_minutes: durationMinutes,
-        is_default: true
+        is_default: true,
+        full_name: profileData.name,
+        email: profileData.email,
+        preferred_industries: profileData.industry ? [profileData.industry] : []
       });
       if (profileError) throw profileError;
       toast({
@@ -412,29 +416,7 @@ export const UserProfile = ({
             {/* Sidebar */}
             <div className="space-y-6">
               {/* Account Stats */}
-              <Card className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-md border border-blue-500/30 hover:from-blue-500/25 hover:to-cyan-500/25 transition-all duration-300 card-entrance">
-                <CardHeader>
-                  <CardTitle className="text-black">Account Stats</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-black/80">Sessions Completed:</span>
-                    <span className="font-bold text-black">24</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-black/80">Average Score:</span>
-                    <span className="font-bold text-black">85%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-black/80">Hours Practiced:</span>
-                    <span className="font-bold text-black">12.5</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-black/80">Member Since:</span>
-                    <span className="font-bold text-black">Jan 2024</span>
-                  </div>
-                </CardContent>
-              </Card>
+              <AccountStats />
 
               {/* Settings */}
               

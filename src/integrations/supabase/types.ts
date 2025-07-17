@@ -22,6 +22,7 @@ export type Database = {
           hours_practiced: number
           id: string
           last_session_date: string | null
+          member_since: string | null
           total_sessions: number
           updated_at: string
           user_id: string
@@ -36,6 +37,7 @@ export type Database = {
           hours_practiced?: number
           id?: string
           last_session_date?: string | null
+          member_since?: string | null
           total_sessions?: number
           updated_at?: string
           user_id: string
@@ -50,63 +52,13 @@ export type Database = {
           hours_practiced?: number
           id?: string
           last_session_date?: string | null
+          member_since?: string | null
           total_sessions?: number
           updated_at?: string
           user_id?: string
           week_start_date?: string
           weekly_completed?: number
           weekly_goal?: number
-        }
-        Relationships: []
-      }
-      interview_configurations: {
-        Row: {
-          company_type: string | null
-          created_at: string
-          difficulty_level: string | null
-          duration_minutes: number | null
-          experience_level: string | null
-          focus_areas: string[] | null
-          id: string
-          interview_type: string | null
-          is_default: boolean | null
-          job_role: string | null
-          name: string
-          question_count: number | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          company_type?: string | null
-          created_at?: string
-          difficulty_level?: string | null
-          duration_minutes?: number | null
-          experience_level?: string | null
-          focus_areas?: string[] | null
-          id?: string
-          interview_type?: string | null
-          is_default?: boolean | null
-          job_role?: string | null
-          name: string
-          question_count?: number | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          company_type?: string | null
-          created_at?: string
-          difficulty_level?: string | null
-          duration_minutes?: number | null
-          experience_level?: string | null
-          focus_areas?: string[] | null
-          id?: string
-          interview_type?: string | null
-          is_default?: boolean | null
-          job_role?: string | null
-          name?: string
-          question_count?: number | null
-          updated_at?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -161,7 +113,7 @@ export type Database = {
             foreignKeyName: "practice_sessions_configuration_id_fkey"
             columns: ["configuration_id"]
             isOneToOne: false
-            referencedRelation: "interview_configurations"
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -219,42 +171,93 @@ export type Database = {
       User_accounts: {
         Row: {
           avatar_url: string | null
-          bio: string | null
           created_at: string
           email: string | null
           experience_level: string | null
           full_name: string | null
           id: string
           location: string | null
-          phone: string | null
           preferred_industries: string[] | null
           updated_at: string
           user_id: string
         }
         Insert: {
           avatar_url?: string | null
-          bio?: string | null
           created_at?: string
           email?: string | null
           experience_level?: string | null
           full_name?: string | null
           id?: string
           location?: string | null
-          phone?: string | null
           preferred_industries?: string[] | null
           updated_at?: string
           user_id: string
         }
         Update: {
           avatar_url?: string | null
-          bio?: string | null
           created_at?: string
           email?: string | null
           experience_level?: string | null
           full_name?: string | null
           id?: string
           location?: string | null
-          phone?: string | null
+          preferred_industries?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          avatar_url: string | null
+          company_type: string | null
+          created_at: string
+          duration_minutes: number | null
+          email: string | null
+          experience_level: string | null
+          full_name: string | null
+          id: string
+          interview_type: string | null
+          is_default: boolean | null
+          job_role: string | null
+          location: string | null
+          name: string
+          preferred_industries: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          company_type?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          email?: string | null
+          experience_level?: string | null
+          full_name?: string | null
+          id?: string
+          interview_type?: string | null
+          is_default?: boolean | null
+          job_role?: string | null
+          location?: string | null
+          name: string
+          preferred_industries?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          company_type?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          email?: string | null
+          experience_level?: string | null
+          full_name?: string | null
+          id?: string
+          interview_type?: string | null
+          is_default?: boolean | null
+          job_role?: string | null
+          location?: string | null
+          name?: string
           preferred_industries?: string[] | null
           updated_at?: string
           user_id?: string

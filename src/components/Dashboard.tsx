@@ -49,7 +49,30 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
           .eq('user_id', currentUser.id)
           .maybeSingle();
 
-        setDashboardAnalytics(analytics);
+        // If no analytics exist yet, create initial record with member_since date
+        let finalAnalytics = analytics;
+        if (!analytics) {
+          const { data: userAccount } = await supabase
+            .from('User_accounts')
+            .select('created_at')
+            .eq('user_id', currentUser.id)
+            .single();
+          
+          const memberSince = userAccount?.created_at ? new Date(userAccount.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+          
+          const { data: newAnalytics } = await supabase
+            .from('dashboard_analytics')
+            .insert({
+              user_id: currentUser.id,
+              member_since: memberSince
+            })
+            .select()
+            .single();
+          
+          finalAnalytics = newAnalytics;
+        }
+
+        setDashboardAnalytics(finalAnalytics);
 
         // Load recent practice sessions
         const { data: sessions } = await supabase
@@ -109,6 +132,12 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
       value: dashboardAnalytics?.current_streak ? `${dashboardAnalytics.current_streak} days` : "0 days", 
       icon: <Award className="h-5 w-5" />, 
       color: "from-orange-500 to-red-500" 
+    },
+    { 
+      label: "Member Since", 
+      value: dashboardAnalytics?.member_since ? new Date(dashboardAnalytics.member_since).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "Recently", 
+      icon: <Calendar className="h-5 w-5" />, 
+      color: "from-indigo-500 to-blue-500" 
     }
   ];
 
