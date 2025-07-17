@@ -7,14 +7,16 @@ import { ArrowLeft, User, Settings, LogOut, Edit } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-
 interface UserProfileProps {
   user: any;
   onBack: () => void;
   onLogout?: () => void;
 }
-
-export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
+export const UserProfile = ({
+  user,
+  onBack,
+  onLogout
+}: UserProfileProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingConfig, setIsEditingConfig] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,25 +33,27 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
     type: user?.interviewConfig?.type || 'Technical',
     duration: user?.interviewConfig?.duration || '30 minutes'
   });
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
 
   // Load existing profile data on component mount
   useEffect(() => {
     loadProfileData();
   }, []);
-
   const loadProfileData = async () => {
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const {
+        data: {
+          user: currentUser
+        }
+      } = await supabase.auth.getUser();
       if (!currentUser) return;
 
       // Load account info
-      const { data: accountData } = await supabase
-        .from('User_accounts')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .single();
-
+      const {
+        data: accountData
+      } = await supabase.from('User_accounts').select('*').eq('user_id', currentUser.id).single();
       if (accountData) {
         setProfileData({
           name: accountData.full_name || '',
@@ -61,13 +65,9 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
       }
 
       // Load profile configuration (interview settings)
-      const { data: profileConfig } = await supabase
-        .from('interview_configurations')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .eq('is_default', true)
-        .single();
-
+      const {
+        data: profileConfig
+      } = await supabase.from('interview_configurations').select('*').eq('user_id', currentUser.id).eq('is_default', true).single();
       if (profileConfig) {
         setInterviewConfig({
           industry: profileConfig.company_type || 'Software Engineering',
@@ -80,39 +80,35 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
       console.error('Error loading profile data:', error);
     }
   };
-
-  const industries = [
-    "Software Engineering", "Marketing", "Finance", "Healthcare", 
-    "Sales", "Consulting", "Data Science", "Design", "Operations", "HR"
-  ];
-
+  const industries = ["Software Engineering", "Marketing", "Finance", "Healthcare", "Sales", "Consulting", "Data Science", "Design", "Operations", "HR"];
   const levels = ["Entry Level", "Mid Level", "Senior Level", "Executive"];
   const types = ["Behavioral", "Technical", "Mixed"];
-
   const handleSave = async () => {
     setLoading(true);
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const {
+        data: {
+          user: currentUser
+        }
+      } = await supabase.auth.getUser();
       if (!currentUser) {
         throw new Error('User not authenticated');
       }
 
       // Update User_accounts table
-      const { error: accountError } = await supabase
-        .from('User_accounts')
-        .upsert({
-          user_id: currentUser.id,
-          full_name: profileData.name,
-          email: profileData.email,
-          experience_level: profileData.level,
-          preferred_industries: profileData.industry ? [profileData.industry] : []
-        });
-
+      const {
+        error: accountError
+      } = await supabase.from('User_accounts').upsert({
+        user_id: currentUser.id,
+        full_name: profileData.name,
+        email: profileData.email,
+        experience_level: profileData.level,
+        preferred_industries: profileData.industry ? [profileData.industry] : []
+      });
       if (accountError) throw accountError;
-
       toast({
         title: "Profile Updated",
-        description: "Your profile has been successfully updated.",
+        description: "Your profile has been successfully updated."
       });
       setIsEditing(false);
     } catch (error) {
@@ -120,17 +116,20 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
       toast({
         title: "Error",
         description: "Failed to update profile. Please try again.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
   const handleSaveConfig = async () => {
     setLoading(true);
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const {
+        data: {
+          user: currentUser
+        }
+      } = await supabase.auth.getUser();
       if (!currentUser) {
         throw new Error('User not authenticated');
       }
@@ -139,23 +138,21 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
       const durationMinutes = parseInt(interviewConfig.duration.replace(' minutes', ''));
 
       // Update or insert profile configuration
-      const { error: profileError } = await supabase
-        .from('interview_configurations')
-        .upsert({
-          user_id: currentUser.id,
-          name: 'Default Configuration',
-          company_type: interviewConfig.industry,
-          experience_level: interviewConfig.level,
-          interview_type: interviewConfig.type.toLowerCase(),
-          duration_minutes: durationMinutes,
-          is_default: true
-        });
-
+      const {
+        error: profileError
+      } = await supabase.from('interview_configurations').upsert({
+        user_id: currentUser.id,
+        name: 'Default Configuration',
+        company_type: interviewConfig.industry,
+        experience_level: interviewConfig.level,
+        interview_type: interviewConfig.type.toLowerCase(),
+        duration_minutes: durationMinutes,
+        is_default: true
+      });
       if (profileError) throw profileError;
-
       toast({
         title: "Interview Configuration Updated",
-        description: "Your interview preferences have been successfully updated.",
+        description: "Your interview preferences have been successfully updated."
       });
       setIsEditingConfig(false);
     } catch (error) {
@@ -163,25 +160,22 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
       toast({
         title: "Error",
         description: "Failed to update interview configuration. Please try again.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
   const handleLogout = () => {
     toast({
       title: "Logged Out",
-      description: "You have been successfully logged out.",
+      description: "You have been successfully logged out."
     });
     if (onLogout) {
       onLogout();
     }
   };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black relative overflow-hidden page-enter">
+  return <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black relative overflow-hidden page-enter">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -right-1/2 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
@@ -195,11 +189,7 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
           {/* Header */}
           <div className="flex items-center justify-between mb-8 fade-in">
             <div className="flex items-center">
-              <Button 
-                variant="ghost" 
-                onClick={onBack} 
-                className="mr-4 text-white/90 hover:text-white hover:bg-white/10 backdrop-blur-sm border border-white/10"
-              >
+              <Button variant="ghost" onClick={onBack} className="mr-4 text-white/90 hover:text-white hover:bg-white/10 backdrop-blur-sm border border-white/10">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
@@ -208,11 +198,7 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
                 <p className="text-white/80 text-reveal">Manage your account and interview preferences</p>
               </div>
             </div>
-            <Button 
-              onClick={handleLogout}
-              variant="outline"
-              className="bg-red-500/20 hover:bg-red-500/30 text-red-200 border-red-500/30 backdrop-blur-sm"
-            >
+            <Button onClick={handleLogout} variant="outline" className="bg-red-500/20 hover:bg-red-500/30 text-red-200 border-red-500/30 backdrop-blur-sm">
               <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
@@ -234,12 +220,7 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
                         Update your personal information and preferences
                       </CardDescription>
                     </div>
-                    <Button
-                      onClick={() => setIsEditing(!isEditing)}
-                      variant="outline"
-                      size="sm"
-                      className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm"
-                    >
+                    <Button onClick={() => setIsEditing(!isEditing)} variant="outline" size="sm" className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
                       <Edit className="h-4 w-4 mr-1" />
                       {isEditing ? 'Cancel' : 'Edit'}
                     </Button>
@@ -249,40 +230,33 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-white/90">Full Name</Label>
-                      <Input
-                        value={profileData.name}
-                        onChange={(e) => setProfileData({...profileData, name: e.target.value})}
-                        disabled={!isEditing}
-                        className="bg-white/10 border-white/20 text-white placeholder-white/60 backdrop-blur-sm disabled:opacity-60"
-                      />
+                      <Input value={profileData.name} onChange={e => setProfileData({
+                      ...profileData,
+                      name: e.target.value
+                    })} disabled={!isEditing} className="bg-white/10 border-white/20 text-white placeholder-white/60 backdrop-blur-sm disabled:opacity-60" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-white/90">Email</Label>
-                      <Input
-                        value={profileData.email}
-                        onChange={(e) => setProfileData({...profileData, email: e.target.value})}
-                        disabled={!isEditing}
-                        className="bg-white/10 border-white/20 text-white placeholder-white/60 backdrop-blur-sm disabled:opacity-60"
-                      />
+                      <Input value={profileData.email} onChange={e => setProfileData({
+                      ...profileData,
+                      email: e.target.value
+                    })} disabled={!isEditing} className="bg-white/10 border-white/20 text-white placeholder-white/60 backdrop-blur-sm disabled:opacity-60" />
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-white/90">Industry</Label>
-                    <Select 
-                      value={profileData.industry} 
-                      onValueChange={(value) => setProfileData({...profileData, industry: value})}
-                      disabled={!isEditing}
-                    >
+                    <Select value={profileData.industry} onValueChange={value => setProfileData({
+                    ...profileData,
+                    industry: value
+                  })} disabled={!isEditing}>
                       <SelectTrigger className="bg-white/10 border-white/20 text-white backdrop-blur-sm disabled:opacity-60">
                         <SelectValue placeholder="Select your industry" />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-900/95 border-white/20 backdrop-blur-md">
-                        {industries.map((industry) => (
-                          <SelectItem key={industry} value={industry} className="text-white hover:bg-white/10">
+                        {industries.map(industry => <SelectItem key={industry} value={industry} className="text-white hover:bg-white/10">
                             {industry}
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -290,62 +264,46 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-white/90">Experience Level</Label>
-                      <Select 
-                        value={profileData.level} 
-                        onValueChange={(value) => setProfileData({...profileData, level: value})}
-                        disabled={!isEditing}
-                      >
+                      <Select value={profileData.level} onValueChange={value => setProfileData({
+                      ...profileData,
+                      level: value
+                    })} disabled={!isEditing}>
                         <SelectTrigger className="bg-white/10 border-white/20 text-white backdrop-blur-sm disabled:opacity-60">
                           <SelectValue placeholder="Select your level" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900/95 border-white/20 backdrop-blur-md">
-                          {levels.map((level) => (
-                            <SelectItem key={level} value={level} className="text-white hover:bg-white/10">
+                          {levels.map(level => <SelectItem key={level} value={level} className="text-white hover:bg-white/10">
                               {level}
-                            </SelectItem>
-                          ))}
+                            </SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-white/90">Preferred Interview Type</Label>
-                      <Select 
-                        value={profileData.preferredType} 
-                        onValueChange={(value) => setProfileData({...profileData, preferredType: value})}
-                        disabled={!isEditing}
-                      >
+                      <Select value={profileData.preferredType} onValueChange={value => setProfileData({
+                      ...profileData,
+                      preferredType: value
+                    })} disabled={!isEditing}>
                         <SelectTrigger className="bg-white/10 border-white/20 text-white backdrop-blur-sm disabled:opacity-60">
                           <SelectValue placeholder="Select interview type" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900/95 border-white/20 backdrop-blur-md">
-                          {types.map((type) => (
-                            <SelectItem key={type} value={type} className="text-white hover:bg-white/10">
+                          {types.map(type => <SelectItem key={type} value={type} className="text-white hover:bg-white/10">
                               {type}
-                            </SelectItem>
-                          ))}
+                            </SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
 
-                  {isEditing && (
-                    <div className="flex space-x-3">
-                      <Button 
-                        onClick={handleSave}
-                        disabled={loading}
-                        className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
-                      >
+                  {isEditing && <div className="flex space-x-3">
+                      <Button onClick={handleSave} disabled={loading} className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white">
                         {loading ? "Saving..." : "Save Changes"}
                       </Button>
-                      <Button 
-                        onClick={() => setIsEditing(false)}
-                        variant="outline"
-                        className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm"
-                      >
+                      <Button onClick={() => setIsEditing(false)} variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
                         Cancel
                       </Button>
-                    </div>
-                  )}
+                    </div>}
                 </CardContent>
               </Card>
 
@@ -362,12 +320,7 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
                         Update your default interview settings
                       </CardDescription>
                     </div>
-                    <Button
-                      onClick={() => setIsEditingConfig(!isEditingConfig)}
-                      variant="outline"
-                      size="sm"
-                      className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm"
-                    >
+                    <Button onClick={() => setIsEditingConfig(!isEditingConfig)} variant="outline" size="sm" className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
                       <Edit className="h-4 w-4 mr-1" />
                       {isEditingConfig ? 'Cancel' : 'Edit'}
                     </Button>
@@ -377,39 +330,33 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-white/90">Default Industry</Label>
-                      <Select 
-                        value={interviewConfig.industry} 
-                        onValueChange={(value) => setInterviewConfig({...interviewConfig, industry: value})}
-                        disabled={!isEditingConfig}
-                      >
+                      <Select value={interviewConfig.industry} onValueChange={value => setInterviewConfig({
+                      ...interviewConfig,
+                      industry: value
+                    })} disabled={!isEditingConfig}>
                         <SelectTrigger className="bg-white/10 border-white/20 text-white backdrop-blur-sm disabled:opacity-60">
                           <SelectValue placeholder="Select industry" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900/95 border-white/20 backdrop-blur-md">
-                          {industries.map((industry) => (
-                            <SelectItem key={industry} value={industry} className="text-white hover:bg-white/10">
+                          {industries.map(industry => <SelectItem key={industry} value={industry} className="text-white hover:bg-white/10">
                               {industry}
-                            </SelectItem>
-                          ))}
+                            </SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-white/90">Default Level</Label>
-                      <Select 
-                        value={interviewConfig.level} 
-                        onValueChange={(value) => setInterviewConfig({...interviewConfig, level: value})}
-                        disabled={!isEditingConfig}
-                      >
+                      <Select value={interviewConfig.level} onValueChange={value => setInterviewConfig({
+                      ...interviewConfig,
+                      level: value
+                    })} disabled={!isEditingConfig}>
                         <SelectTrigger className="bg-white/10 border-white/20 text-white backdrop-blur-sm disabled:opacity-60">
                           <SelectValue placeholder="Select level" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900/95 border-white/20 backdrop-blur-md">
-                          {levels.map((level) => (
-                            <SelectItem key={level} value={level} className="text-white hover:bg-white/10">
+                          {levels.map(level => <SelectItem key={level} value={level} className="text-white hover:bg-white/10">
                               {level}
-                            </SelectItem>
-                          ))}
+                            </SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -418,62 +365,46 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-white/90">Default Type</Label>
-                      <Select 
-                        value={interviewConfig.type} 
-                        onValueChange={(value) => setInterviewConfig({...interviewConfig, type: value})}
-                        disabled={!isEditingConfig}
-                      >
+                      <Select value={interviewConfig.type} onValueChange={value => setInterviewConfig({
+                      ...interviewConfig,
+                      type: value
+                    })} disabled={!isEditingConfig}>
                         <SelectTrigger className="bg-white/10 border-white/20 text-white backdrop-blur-sm disabled:opacity-60">
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900/95 border-white/20 backdrop-blur-md">
-                          {types.map((type) => (
-                            <SelectItem key={type} value={type} className="text-white hover:bg-white/10">
+                          {types.map(type => <SelectItem key={type} value={type} className="text-white hover:bg-white/10">
                               {type}
-                            </SelectItem>
-                          ))}
+                            </SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-white/90">Default Duration</Label>
-                      <Select 
-                        value={interviewConfig.duration} 
-                        onValueChange={(value) => setInterviewConfig({...interviewConfig, duration: value})}
-                        disabled={!isEditingConfig}
-                      >
+                      <Select value={interviewConfig.duration} onValueChange={value => setInterviewConfig({
+                      ...interviewConfig,
+                      duration: value
+                    })} disabled={!isEditingConfig}>
                         <SelectTrigger className="bg-white/10 border-white/20 text-white backdrop-blur-sm disabled:opacity-60">
                           <SelectValue placeholder="Select duration" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900/95 border-white/20 backdrop-blur-md">
-                          {["15 minutes", "30 minutes", "45 minutes", "60 minutes"].map((duration) => (
-                            <SelectItem key={duration} value={duration} className="text-white hover:bg-white/10">
+                          {["15 minutes", "30 minutes", "45 minutes", "60 minutes"].map(duration => <SelectItem key={duration} value={duration} className="text-white hover:bg-white/10">
                               {duration}
-                            </SelectItem>
-                          ))}
+                            </SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
 
-                  {isEditingConfig && (
-                    <div className="flex space-x-3">
-                      <Button 
-                        onClick={handleSaveConfig}
-                        disabled={loading}
-                        className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
-                      >
+                  {isEditingConfig && <div className="flex space-x-3">
+                      <Button onClick={handleSaveConfig} disabled={loading} className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white">
                         {loading ? "Saving..." : "Save Configuration"}
                       </Button>
-                      <Button 
-                        onClick={() => setIsEditingConfig(false)}
-                        variant="outline"
-                        className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm"
-                      >
+                      <Button onClick={() => setIsEditingConfig(false)} variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
                         Cancel
                       </Button>
-                    </div>
-                  )}
+                    </div>}
                 </CardContent>
               </Card>
             </div>
@@ -506,41 +437,10 @@ export const UserProfile = ({ user, onBack, onLogout }: UserProfileProps) => {
               </Card>
 
               {/* Settings */}
-              <Card className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-md border border-purple-500/30 hover:from-purple-500/25 hover:to-pink-500/25 transition-all duration-300 scale-in">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-black">
-                    <Settings className="h-5 w-5 mr-2" />
-                    Quick Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start bg-white/10 hover:bg-white/20 text-black border-white/20 backdrop-blur-sm"
-                  >
-                    Notification Preferences
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start bg-white/10 hover:bg-white/20 text-black border-white/20 backdrop-blur-sm"
-                  >
-                    Privacy Settings
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start bg-white/10 hover:bg-white/20 text-black border-white/20 backdrop-blur-sm"
-                  >
-                    Data Export
-                  </Button>
-                </CardContent>
-              </Card>
+              
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
