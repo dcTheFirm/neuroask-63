@@ -29,18 +29,39 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
 
   const config = getConfigWithDefaults();
 
-  const [messages, setMessages] = useState<Array<{id: number, text: string, sender: 'user' | 'ai', timestamp: Date}>>([
+  // Define structured questions based on interview type
+  const getQuestionsForType = (type: string, industry: string, level: string) => {
+    const baseQuestions = [
+      `Hello! I'm your AI interviewer for today's ${type} interview in ${industry}. Let's start with our first question: Tell me about yourself and why you're interested in this ${level} role.`,
+      "Can you tell me about a challenging project you've worked on and how you overcame the obstacles?",
+      "How do you handle working under pressure and tight deadlines?",
+      "Describe a time when you had to work with a difficult team member and how you resolved it.",
+      "What are your thoughts on the latest trends in your industry?",
+      "Tell me about a time when you failed at something and what you learned from it.",
+      "How do you prioritize multiple tasks when everything seems urgent?",
+      "What motivates you in your work and keeps you engaged?",
+      "Where do you see yourself in the next 5 years?",
+      "Do you have any questions for me about this role or our company?"
+    ];
+    return baseQuestions;
+  };
+
+  const interviewQuestions = getQuestionsForType(config.type, config.industry, config.level);
+  
+  const [messages, setMessages] = useState<Array<{id: number, text: string, sender: 'user' | 'ai', timestamp: Date, questionNumber?: number}>>([
     {
       id: 1,
-      text: `Hello! I'm your AI interviewer for today's ${config.type} interview in ${config.industry}. Let's start with our first question: Tell me about yourself and why you're interested in this ${config.level} role.`,
+      text: interviewQuestions[0],
       sender: 'ai',
-      timestamp: new Date()
+      timestamp: new Date(),
+      questionNumber: 1
     }
   ]);
   const [currentMessage, setCurrentMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -76,7 +97,7 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
           user_id: currentUser.id,
           session_type: 'text',
           status: 'in_progress',
-          total_questions: 10,
+          total_questions: interviewQuestions.length,
           questions_answered: 0,
           started_at: new Date().toISOString()
         })
@@ -101,31 +122,69 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
     };
 
     setMessages(prev => [...prev, userMessage]);
+    
+    // Save this question-answer pair immediately to database
+    await saveQuestionAnswer();
+    
     setCurrentMessage("");
     setIsLoading(true);
 
-    // Simulate AI response
+    // Move to next question in sequence
+    const nextQuestionIndex = currentQuestionIndex + 1;
+    
     setTimeout(() => {
-      const aiResponses = [
-        "Thank you for sharing that. Can you tell me about a challenging project you've worked on and how you overcame the obstacles?",
-        "That's interesting. How do you handle working under pressure and tight deadlines?",
-        "Great example! Now, can you describe a time when you had to work with a difficult team member?",
-        "Excellent response. What are your thoughts on the latest trends in your industry?",
-        "Thank you for that detailed answer. Where do you see yourself in the next 5 years?"
-      ];
-      
-      const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)];
-      
-      const aiMessage = {
-        id: messages.length + 2,
-        text: randomResponse,
-        sender: 'ai' as const,
-        timestamp: new Date()
-      };
+      if (nextQuestionIndex < interviewQuestions.length) {
+        const aiMessage = {
+          id: messages.length + 2,
+          text: interviewQuestions[nextQuestionIndex],
+          sender: 'ai' as const,
+          timestamp: new Date(),
+          questionNumber: nextQuestionIndex + 1
+        };
 
-      setMessages(prev => [...prev, aiMessage]);
+        setMessages(prev => [...prev, aiMessage]);
+        setCurrentQuestionIndex(nextQuestionIndex);
+      } else {
+        // Interview completed
+        const completionMessage = {
+          id: messages.length + 2,
+          text: "Thank you for completing the interview! I have all the information I need. You can end the session when you're ready.",
+          sender: 'ai' as const,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, completionMessage]);
+      }
       setIsLoading(false);
     }, 1500);
+  };
+
+  const saveQuestionAnswer = async () => {
+    if (!sessionId) return;
+
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return;
+
+      // Get the current AI question (the one being answered)
+      const aiMessages = messages.filter(m => m.sender === 'ai');
+      const currentQuestion = aiMessages[currentQuestionIndex];
+
+      await supabase
+        .from('text_interviews')
+        .insert({
+          user_id: currentUser.id,
+          session_id: sessionId,
+          question_number: currentQuestionIndex + 1,
+          question_text: currentQuestion?.text || interviewQuestions[currentQuestionIndex],
+          user_answer: currentMessage,
+          answered_at: new Date().toISOString(),
+          time_taken_seconds: Math.floor((new Date().getTime() - currentQuestion?.timestamp.getTime()) / 1000) || 0
+        });
+
+      console.log(`Saved Q${currentQuestionIndex + 1}: "${currentQuestion?.text}" A: "${currentMessage}"`);
+    } catch (error) {
+      console.error('Error saving question-answer:', error);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -147,34 +206,6 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
             questions_answered: messages.filter(m => m.sender === 'user').length
           })
           .eq('id', sessionId);
-
-        // Save individual text interview entries properly paired
-        const userMessages = messages.filter(m => m.sender === 'user');
-        const aiMessages = messages.filter(m => m.sender === 'ai');
-        
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        if (currentUser) {
-          for (let i = 0; i < userMessages.length; i++) {
-            // Find the corresponding AI question for this user response
-            // AI messages are before user messages, so we look for the AI message at index i
-            const correspondingQuestion = aiMessages[i]?.text || "Interview question";
-            const userResponse = userMessages[i]?.text || "";
-            
-            console.log(`Saving text interview - Q${i + 1}: "${correspondingQuestion}" A: "${userResponse}"`);
-            
-            await supabase
-              .from('text_interviews')
-              .insert({
-                user_id: currentUser.id,
-                session_id: sessionId,
-                question_number: i + 1,
-                question_text: correspondingQuestion,
-                user_answer: userResponse,
-                answered_at: userMessages[i]?.timestamp.toISOString(),
-                time_taken_seconds: Math.floor((userMessages[i]?.timestamp.getTime() - aiMessages[i]?.timestamp.getTime()) / 1000) || 0
-              });
-          }
-        }
       }
 
       toast({
