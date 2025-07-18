@@ -41,7 +41,18 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
         "Tell me about a time when you had to convince someone to see things your way.",
         "How do you prioritize multiple tasks when everything seems urgent?",
         "Describe a time when you took initiative on a project.",
-        "Tell me about a time when you received difficult feedback and how you handled it."
+        "Tell me about a time when you received difficult feedback and how you handled it.",
+        "Describe a situation where you had to meet a very tight deadline.",
+        "Tell me about a time when you had to work with someone from a different cultural background.",
+        "How do you handle situations where you disagree with your manager?",
+        "Describe a time when you had to learn something completely new quickly.",
+        "Tell me about a time when you made a mistake and how you handled it.",
+        "How do you deal with ambiguous or unclear requirements?",
+        "Describe a time when you had to give constructive feedback to a colleague.",
+        "Tell me about a time when you had to work on multiple projects simultaneously.",
+        "How do you handle stress and maintain productivity during busy periods?",
+        "Describe a situation where you had to compromise to reach a solution.",
+        "Tell me about a time when you went above and beyond your job requirements."
       ],
       technical: [
         `What are the key technical skills required for a ${level} role in ${industry}?`,
@@ -52,7 +63,18 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
         "What's your experience with version control and collaborative development?",
         "How do you approach learning new technologies or frameworks?",
         "Describe your testing strategy for ensuring software reliability.",
-        "What's your experience with performance optimization?"
+        "What's your experience with performance optimization?",
+        "How do you handle legacy code and technical debt?",
+        "Describe your experience with design patterns and architecture.",
+        "What's your approach to documentation and knowledge sharing?",
+        "How do you ensure security best practices in your development work?",
+        "Describe your experience with cloud technologies and deployment.",
+        "What's your approach to database design and optimization?",
+        "How do you handle API design and integration?",
+        "Describe your experience with automation and CI/CD pipelines.",
+        "What's your approach to monitoring and logging in production systems?",
+        "How do you handle scalability challenges in your applications?",
+        "Describe your experience with mobile development or responsive design."
       ],
       leadership: [
         "Tell me about a time when you had to lead a team or project.",
@@ -63,7 +85,18 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
         "How do you ensure effective communication within your team?",
         "Describe your approach to mentoring junior team members.",
         "Tell me about a time when you had to manage competing priorities.",
-        "How do you foster innovation and creativity in your team?"
+        "How do you foster innovation and creativity in your team?",
+        "Describe a time when you had to implement a major change in your team.",
+        "How do you handle underperforming team members?",
+        "Tell me about a time when you had to present to senior leadership.",
+        "How do you build consensus among team members with different opinions?",
+        "Describe your approach to setting goals and measuring success.",
+        "Tell me about a time when you had to manage a remote or distributed team.",
+        "How do you handle situations where you need to deliver bad news?",
+        "Describe your experience with budget management and resource allocation.",
+        "Tell me about a time when you had to coordinate with multiple departments.",
+        "How do you ensure knowledge transfer and succession planning?",
+        "Describe your approach to hiring and building a strong team."
       ]
     };
 
@@ -75,6 +108,18 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
       "What are your greatest strengths and how do they apply to this role?",
       "What's the most important lesson you've learned in your career so far?",
       "How do you handle work-life balance in a demanding field like ${industry}?",
+      "What are some areas where you'd like to improve professionally?",
+      "How do you approach continuous learning and professional development?",
+      "What type of work environment do you thrive in?",
+      "How do you handle constructive criticism and feedback?",
+      "What's your approach to time management and organization?",
+      "How do you stay motivated during challenging periods?",
+      "What role does collaboration play in your work style?",
+      "How do you approach risk-taking in your professional decisions?",
+      "What's your experience with remote work and virtual collaboration?",
+      "How do you measure success in your current role?",
+      "What industry trends do you think will impact our field in the next few years?",
+      "How do you approach building relationships with clients or stakeholders?",
       "Do you have any questions for me about this role or our company?"
     ];
 
@@ -85,11 +130,11 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
     const shuffledTypeQuestions = [...typeQuestions].sort(() => Math.random() - 0.5);
     const shuffledGeneralQuestions = [...generalQuestions].sort(() => Math.random() - 0.5);
     
-    // Combine with opening question and mix type-specific with general questions
+    // Combine with opening question and mix type-specific with general questions to get around 30
     const finalQuestions = [
       `Hello! I'm your AI interviewer for today's ${type} interview in ${industry}. Let's start with our first question: ${shuffledGeneralQuestions[0]}`,
-      ...shuffledTypeQuestions.slice(0, 6), // Take 6 randomized type-specific questions
-      ...shuffledGeneralQuestions.slice(1, 4) // Take 3 more general questions
+      ...shuffledTypeQuestions.slice(0, 20), // Take 20 randomized type-specific questions
+      ...shuffledGeneralQuestions.slice(1, 10) // Take 9 more general questions (total ~30)
     ];
 
     return finalQuestions;
