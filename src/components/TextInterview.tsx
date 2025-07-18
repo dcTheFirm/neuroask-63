@@ -29,21 +29,70 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
 
   const config = getConfigWithDefaults();
 
-  // Define structured questions based on interview type
+  // Define dynamic questions based on interview type to avoid repetition
   const getQuestionsForType = (type: string, industry: string, level: string) => {
-    const baseQuestions = [
-      `Hello! I'm your AI interviewer for today's ${type} interview in ${industry}. Let's start with our first question: Tell me about yourself and why you're interested in this ${level} role.`,
-      "Can you tell me about a challenging project you've worked on and how you overcame the obstacles?",
-      "How do you handle working under pressure and tight deadlines?",
-      "Describe a time when you had to work with a difficult team member and how you resolved it.",
-      "What are your thoughts on the latest trends in your industry?",
-      "Tell me about a time when you failed at something and what you learned from it.",
-      "How do you prioritize multiple tasks when everything seems urgent?",
+    const questionCategories = {
+      behavioral: [
+        "Tell me about a challenging project you've worked on and how you overcame the obstacles.",
+        "Describe a time when you had to work with a difficult team member and how you resolved it.",
+        "Tell me about a time when you failed at something and what you learned from it.",
+        "How do you handle working under pressure and tight deadlines?",
+        "Describe a situation where you had to adapt to a significant change at work.",
+        "Tell me about a time when you had to convince someone to see things your way.",
+        "How do you prioritize multiple tasks when everything seems urgent?",
+        "Describe a time when you took initiative on a project.",
+        "Tell me about a time when you received difficult feedback and how you handled it."
+      ],
+      technical: [
+        `What are the key technical skills required for a ${level} role in ${industry}?`,
+        "How do you stay updated with the latest technologies and trends in your field?",
+        "Describe your approach to debugging and problem-solving.",
+        "Tell me about a complex technical problem you solved recently.",
+        "How do you ensure code quality and maintainability in your projects?",
+        "What's your experience with version control and collaborative development?",
+        "How do you approach learning new technologies or frameworks?",
+        "Describe your testing strategy for ensuring software reliability.",
+        "What's your experience with performance optimization?"
+      ],
+      leadership: [
+        "Tell me about a time when you had to lead a team or project.",
+        "How do you motivate team members who are struggling?",
+        "Describe a situation where you had to make a difficult decision as a leader.",
+        "How do you handle conflicts within your team?",
+        "Tell me about a time when you had to delegate important tasks.",
+        "How do you ensure effective communication within your team?",
+        "Describe your approach to mentoring junior team members.",
+        "Tell me about a time when you had to manage competing priorities.",
+        "How do you foster innovation and creativity in your team?"
+      ]
+    };
+
+    const generalQuestions = [
+      `Tell me about yourself and why you're interested in this ${level} role in ${industry}.`,
       "What motivates you in your work and keeps you engaged?",
       "Where do you see yourself in the next 5 years?",
+      `What excites you most about working in ${industry}?`,
+      "What are your greatest strengths and how do they apply to this role?",
+      "What's the most important lesson you've learned in your career so far?",
+      "How do you handle work-life balance in a demanding field like ${industry}?",
       "Do you have any questions for me about this role or our company?"
     ];
-    return baseQuestions;
+
+    // Select questions based on type, with some randomization to avoid repetition
+    const typeQuestions = questionCategories[type.toLowerCase() as keyof typeof questionCategories] || questionCategories.behavioral;
+    
+    // Shuffle arrays to provide variation
+    const shuffledTypeQuestions = [...typeQuestions].sort(() => Math.random() - 0.5);
+    const shuffledGeneralQuestions = [...generalQuestions].sort(() => Math.random() - 0.5);
+    
+    // Combine with opening question and mix type-specific with general questions
+    const finalQuestions = [
+      `Hello! I'm your AI interviewer for today's ${type} interview in ${industry}. Let's start with our first question: ${shuffledGeneralQuestions[0]}`,
+      ...shuffledTypeQuestions.slice(0, 6), // Take 6 randomized type-specific questions
+      ...shuffledGeneralQuestions.slice(1, 4) // Take 3 more general questions
+    ];
+
+    return finalQuestions;
   };
 
   const interviewQuestions = getQuestionsForType(config.type, config.industry, config.level);

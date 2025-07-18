@@ -316,6 +316,12 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
 - साक्षात्कार को ${durationMinutes}-मिनट की समय सीमा में फिट करने के लिए गति निर्धारित करें
 - तकनीकी कौशल और सांस्कृतिक फिट दोनों का परीक्षण करने वाले प्रश्न पूछें
 
+IMPORTANT: प्रत्येक साक्षात्कार के लिए अलग-अलग प्रश्न चुनें। पुराने प्रश्नों को दोहराने से बचें। अपने प्रश्नों को उम्मीदवार के उत्तरों के आधार पर अनुकूलित करें।
+
+${config.type === 'behavioral' ? 'व्यवहारिक प्रश्न उदाहरण: किसी चुनौतीपूर्ण परियोजना के बारे में बताएं, टीम संघर्ष को कैसे संभालते हैं, दबाव में काम करने का अनुभव।' : ''}
+${config.type === 'technical' ? 'तकनीकी प्रश्न उदाहरण: आपकी समस्या निवारण विधि, नई तकनीकों के साथ अनुभव, कोड गुणवत्ता सुनिश्चित करने के तरीके।' : ''}
+${config.type === 'leadership' ? 'नेतृत्व प्रश्न उदाहरण: टीम का नेतृत्व कैसे करते हैं, कठिन निर्णय लेने का अनुभव, संघर्ष प्रबंधन।' : ''}
+
 महत्वपूर्ण समय:
 - ${Math.max(durationMinutes-2, 1)} मिनट के बाद, साक्षात्कार को समाप्त करना शुरू करें
 - अगर उम्मीदवार कहता है "साक्षात्कार बंद करो" या "रोको", तुरंत विनम्रता से साक्षात्कार समाप्त करें
@@ -339,6 +345,12 @@ Your role:
 - Ask questions that test both technical skills and cultural fit
 - Provide encouraging feedback when appropriate
 
+IMPORTANT: Choose different questions for each interview. Avoid repeating previous questions. Adapt your questions based on the candidate's responses to ensure a unique and engaging conversation.
+
+${config.type === 'behavioral' ? 'Behavioral question examples: Tell me about a challenging project, how you handle team conflicts, experience working under pressure, times when you failed and learned, adapting to change.' : ''}
+${config.type === 'technical' ? 'Technical question examples: Your problem-solving approach, experience with new technologies, ensuring code quality, debugging strategies, performance optimization.' : ''}
+${config.type === 'leadership' ? 'Leadership question examples: Leading a team, making difficult decisions, conflict management, motivating struggling team members, delegation strategies.' : ''}
+
 IMPORTANT TIMING:
 - After ${Math.max(durationMinutes-2, 1)} minutes, start wrapping up the interview
 - If the candidate says "stop interview" or "end interview", politely conclude immediately
@@ -350,6 +362,7 @@ Guidelines:
 - Show interest in their responses
 - Maintain a supportive but professional tone
 - If they seem nervous, be encouraging
+- Vary your questions to ensure each interview is unique
 
 Start with: "Hello! Thank you for joining us today. I'm excited to learn more about you and your experience in ${config.industry}. Let's begin with you telling me a bit about yourself and what interests you about this ${config.level} position."`
           }
