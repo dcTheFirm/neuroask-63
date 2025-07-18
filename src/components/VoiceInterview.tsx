@@ -37,8 +37,7 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
   const questionCounter = useRef(0);
 
   const languages = [
-    { code: "en", name: "English", vapiLocale: "en-US" as const },
-    { code: "hi", name: "हिंदी (Hindi)", vapiLocale: "hi" as const }
+    { code: "en", name: "English", vapiLocale: "en-US" as const }
   ];
 
   // Initialize Vapi with improved error handling
@@ -560,23 +559,6 @@ Start with: "Hello! Thank you for joining us today. I'm excited to learn more ab
                   </Badge>
                 </div>
                 
-                {/* Language Selector */}
-                <div className="flex items-center space-x-2">
-                  <Globe className="h-4 w-4 text-white/70" />
-                  <label className="text-sm font-medium text-white/90">Interview Language:</label>
-                  <Select value={selectedLanguage} onValueChange={setSelectedLanguage} disabled={isCallActive}>
-                    <SelectTrigger className="w-40 bg-white/10 border-white/20 text-white backdrop-blur-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-900/95 border-white/20 backdrop-blur-md">
-                      {languages.map((lang) => (
-                        <SelectItem key={lang.code} value={lang.code} className="text-white hover:bg-white/10">
-                          {lang.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </CardContent>
             </Card>
 

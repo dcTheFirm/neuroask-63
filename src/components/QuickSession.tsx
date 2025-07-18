@@ -48,8 +48,7 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
   const { toast } = useToast();
 
   const languages = [
-    { code: "en", name: "English", vapiLocale: "en-US" as const },
-    { code: "hi", name: "हिंदी (Hindi)", vapiLocale: "hi" as const }
+    { code: "en", name: "English", vapiLocale: "en-US" as const }
   ];
 
   const questions = [
@@ -58,13 +57,7 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
     "What's your greatest professional strength?"
   ];
 
-  const questionsHindi = [
-    "अपने बारे में और अपनी पृष्ठभूमि के बारे में बताएं।",
-    "आप इस पद में क्यों रुचि रखते हैं?",
-    "आपकी सबसे बड़ी व्यावसायिक शक्ति क्या है?"
-  ];
-
-  const currentQuestions = selectedLanguage === "hi" ? questionsHindi : questions;
+  const currentQuestions = questions;
 
   // Initialize Vapi for voice sessions
   useEffect(() => {
@@ -313,7 +306,7 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
         },
         voice: {
           provider: "11labs" as const,
-          voiceId: selectedLanguage === "hi" ? "pFZP5JQG7iQjIQuC4Bku" : "21m00Tcm4TlvDq8ikWAM"
+          voiceId: "21m00Tcm4TlvDq8ikWAM"
         },
         firstMessage: selectedLanguage === "hi" 
           ? "नमस्ते! आपके 5-मिनट के त्वरित साक्षात्कार में आपका स्वागत है। आइए पहले प्रश्न से शुरुआत करते हैं: अपने बारे में और अपनी पृष्ठभूमि के बारे में बताएं।"
@@ -447,7 +440,7 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
         level: interviewConfig.level || "Mid-level",
         duration: "5 minutes",
         sessionType: sessionType,
-        language: selectedLanguage,
+        language: "en",
         totalQuestions: currentQuestions.length,
         answeredQuestions: finalAnswers.filter(answer => answer && answer.trim().length > 0).length,
         timeSpent: `${Math.floor((300 - timeLeft) / 60)}:${((300 - timeLeft) % 60).toString().padStart(2, '0')}`
@@ -585,7 +578,7 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
                         </div>
                         <div className="flex justify-between">
                           <span className="text-white/70">Language:</span>
-                          <span className="font-medium text-white">{languages.find(l => l.code === selectedLanguage)?.name}</span>
+                          <span className="font-medium text-white">English</span>
                         </div>
                       </div>
                     </div>
@@ -984,7 +977,7 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
                         </div>
                         <div className="flex justify-between">
                           <span className="font-medium text-white/70">Language:</span>
-                          <span className="text-white">{languages.find(l => l.code === selectedLanguage)?.name}</span>
+                          <span className="text-white">English</span>
                         </div>
                       </div>
                     </CardContent>
