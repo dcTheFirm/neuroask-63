@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { analyzeInterviewWithGemini } from "@/utils/geminiAnalytics";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface TextInterviewProps {
   onBack: () => void;
@@ -156,6 +157,8 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [isUsingGemini, setIsUsingGemini] = useState(true);
+  const [conversationHistory, setConversationHistory] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -205,6 +208,41 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
     }
   };
 
+  const generateNextQuestion = async (userResponse: string): Promise<string> => {
+    try {
+      const genAI = new GoogleGenerativeAI('AIzaSyDZHg1gfTJZNOsWrKGHpKDCPr0tq4wZY6s');
+      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+
+      const context = conversationHistory.join('\n');
+      const prompt = `You are conducting a ${config.type} interview for a ${config.level} position in ${config.industry}. 
+
+Previous conversation:
+${context}
+
+User's latest response: "${userResponse}"
+
+Based on their response, generate the next intelligent follow-up question. The question should:
+- Be relevant to their answer and dig deeper into their experience
+- Be appropriate for a ${config.level} ${config.type} interview in ${config.industry}
+- Test both technical skills and behavioral competencies
+- Be engaging and conversational
+- Avoid repetition of previous questions
+
+Generate only the question, nothing else. Keep it concise (under 100 words).`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text().trim();
+    } catch (error) {
+      console.error('Error generating question with Gemini:', error);
+      // Fallback to static questions
+      const nextQuestionIndex = currentQuestionIndex + 1;
+      return nextQuestionIndex < interviewQuestions.length 
+        ? interviewQuestions[nextQuestionIndex]
+        : "Thank you for completing the interview! I have all the information I need. You can end the session when you're ready.";
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!currentMessage.trim()) return;
 
@@ -220,36 +258,50 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
     // Save this question-answer pair immediately to database
     await saveQuestionAnswer();
     
+    // Update conversation history
+    const currentAIQuestion = messages.filter(m => m.sender === 'ai').slice(-1)[0]?.text || '';
+    setConversationHistory(prev => [...prev, `Q: ${currentAIQuestion}`, `A: ${currentMessage}`]);
+    
     setCurrentMessage("");
     setIsLoading(true);
 
-    // Move to next question in sequence
-    const nextQuestionIndex = currentQuestionIndex + 1;
-    
-    setTimeout(() => {
-      if (nextQuestionIndex < interviewQuestions.length) {
+    try {
+      let nextQuestion: string;
+      
+      if (isUsingGemini && currentQuestionIndex < 10) { // Use Gemini for first 10 questions
+        nextQuestion = await generateNextQuestion(currentMessage);
+      } else {
+        // Fallback to static questions or completion
+        const nextQuestionIndex = currentQuestionIndex + 1;
+        if (nextQuestionIndex < interviewQuestions.length) {
+          nextQuestion = interviewQuestions[nextQuestionIndex];
+        } else {
+          nextQuestion = "Thank you for completing the interview! I have all the information I need. You can end the session when you're ready.";
+        }
+      }
+
+      setTimeout(() => {
         const aiMessage = {
           id: messages.length + 2,
-          text: interviewQuestions[nextQuestionIndex],
+          text: nextQuestion,
           sender: 'ai' as const,
           timestamp: new Date(),
-          questionNumber: nextQuestionIndex + 1
+          questionNumber: currentQuestionIndex + 2
         };
 
         setMessages(prev => [...prev, aiMessage]);
-        setCurrentQuestionIndex(nextQuestionIndex);
-      } else {
-        // Interview completed
-        const completionMessage = {
-          id: messages.length + 2,
-          text: "Thank you for completing the interview! I have all the information I need. You can end the session when you're ready.",
-          sender: 'ai' as const,
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, completionMessage]);
-      }
+        setCurrentQuestionIndex(prev => prev + 1);
+        setIsLoading(false);
+      }, 1500);
+    } catch (error) {
+      console.error('Error generating next question:', error);
       setIsLoading(false);
-    }, 1500);
+      toast({
+        title: "Error",
+        description: "Failed to generate next question. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const saveQuestionAnswer = async () => {
