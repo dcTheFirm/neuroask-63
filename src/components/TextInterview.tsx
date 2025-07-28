@@ -1,11 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Send, Mic, MicOff } from "lucide-react";
+import { ArrowLeft, Send, Bot, MessageCircle, Sparkles } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { analyzeInterviewWithGemini } from "@/utils/geminiAnalytics";
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface TextInterviewProps {
@@ -20,146 +19,24 @@ interface TextInterviewProps {
 }
 
 export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInterviewProps) => {
-  // Get config with defaults
-  const getConfigWithDefaults = () => ({
+  const config = {
     industry: interviewConfig.industry || "Software Engineering",
     level: interviewConfig.level || "Mid-level", 
     type: interviewConfig.type || "Behavioral",
     duration: interviewConfig.duration || "15 minutes"
-  });
-
-  const config = getConfigWithDefaults();
-
-  // Define dynamic questions based on interview type to avoid repetition
-  const getQuestionsForType = (type: string, industry: string, level: string) => {
-    const questionCategories = {
-      behavioral: [
-        "Tell me about a challenging project you've worked on and how you overcame the obstacles.",
-        "Describe a time when you had to work with a difficult team member and how you resolved it.",
-        "Tell me about a time when you failed at something and what you learned from it.",
-        "How do you handle working under pressure and tight deadlines?",
-        "Describe a situation where you had to adapt to a significant change at work.",
-        "Tell me about a time when you had to convince someone to see things your way.",
-        "How do you prioritize multiple tasks when everything seems urgent?",
-        "Describe a time when you took initiative on a project.",
-        "Tell me about a time when you received difficult feedback and how you handled it.",
-        "Describe a situation where you had to meet a very tight deadline.",
-        "Tell me about a time when you had to work with someone from a different cultural background.",
-        "How do you handle situations where you disagree with your manager?",
-        "Describe a time when you had to learn something completely new quickly.",
-        "Tell me about a time when you made a mistake and how you handled it.",
-        "How do you deal with ambiguous or unclear requirements?",
-        "Describe a time when you had to give constructive feedback to a colleague.",
-        "Tell me about a time when you had to work on multiple projects simultaneously.",
-        "How do you handle stress and maintain productivity during busy periods?",
-        "Describe a situation where you had to compromise to reach a solution.",
-        "Tell me about a time when you went above and beyond your job requirements."
-      ],
-      technical: [
-        `What are the key technical skills required for a ${level} role in ${industry}?`,
-        "How do you stay updated with the latest technologies and trends in your field?",
-        "Describe your approach to debugging and problem-solving.",
-        "Tell me about a complex technical problem you solved recently.",
-        "How do you ensure code quality and maintainability in your projects?",
-        "What's your experience with version control and collaborative development?",
-        "How do you approach learning new technologies or frameworks?",
-        "Describe your testing strategy for ensuring software reliability.",
-        "What's your experience with performance optimization?",
-        "How do you handle legacy code and technical debt?",
-        "Describe your experience with design patterns and architecture.",
-        "What's your approach to documentation and knowledge sharing?",
-        "How do you ensure security best practices in your development work?",
-        "Describe your experience with cloud technologies and deployment.",
-        "What's your approach to database design and optimization?",
-        "How do you handle API design and integration?",
-        "Describe your experience with automation and CI/CD pipelines.",
-        "What's your approach to monitoring and logging in production systems?",
-        "How do you handle scalability challenges in your applications?",
-        "Describe your experience with mobile development or responsive design."
-      ],
-      leadership: [
-        "Tell me about a time when you had to lead a team or project.",
-        "How do you motivate team members who are struggling?",
-        "Describe a situation where you had to make a difficult decision as a leader.",
-        "How do you handle conflicts within your team?",
-        "Tell me about a time when you had to delegate important tasks.",
-        "How do you ensure effective communication within your team?",
-        "Describe your approach to mentoring junior team members.",
-        "Tell me about a time when you had to manage competing priorities.",
-        "How do you foster innovation and creativity in your team?",
-        "Describe a time when you had to implement a major change in your team.",
-        "How do you handle underperforming team members?",
-        "Tell me about a time when you had to present to senior leadership.",
-        "How do you build consensus among team members with different opinions?",
-        "Describe your approach to setting goals and measuring success.",
-        "Tell me about a time when you had to manage a remote or distributed team.",
-        "How do you handle situations where you need to deliver bad news?",
-        "Describe your experience with budget management and resource allocation.",
-        "Tell me about a time when you had to coordinate with multiple departments.",
-        "How do you ensure knowledge transfer and succession planning?",
-        "Describe your approach to hiring and building a strong team."
-      ]
-    };
-
-    const generalQuestions = [
-      `Tell me about yourself and why you're interested in this ${level} role in ${industry}.`,
-      "What motivates you in your work and keeps you engaged?",
-      "Where do you see yourself in the next 5 years?",
-      `What excites you most about working in ${industry}?`,
-      "What are your greatest strengths and how do they apply to this role?",
-      "What's the most important lesson you've learned in your career so far?",
-      "How do you handle work-life balance in a demanding field like ${industry}?",
-      "What are some areas where you'd like to improve professionally?",
-      "How do you approach continuous learning and professional development?",
-      "What type of work environment do you thrive in?",
-      "How do you handle constructive criticism and feedback?",
-      "What's your approach to time management and organization?",
-      "How do you stay motivated during challenging periods?",
-      "What role does collaboration play in your work style?",
-      "How do you approach risk-taking in your professional decisions?",
-      "What's your experience with remote work and virtual collaboration?",
-      "How do you measure success in your current role?",
-      "What industry trends do you think will impact our field in the next few years?",
-      "How do you approach building relationships with clients or stakeholders?",
-      "Do you have any questions for me about this role or our company?"
-    ];
-
-    // Select questions based on type, with some randomization to avoid repetition
-    const typeQuestions = questionCategories[type.toLowerCase() as keyof typeof questionCategories] || questionCategories.behavioral;
-    
-    // Shuffle arrays to provide variation
-    const shuffledTypeQuestions = [...typeQuestions].sort(() => Math.random() - 0.5);
-    const shuffledGeneralQuestions = [...generalQuestions].sort(() => Math.random() - 0.5);
-    
-    // Combine with opening question and mix type-specific with general questions to get around 30
-    const finalQuestions = [
-      `Hello! I'm your AI interviewer for today's ${type} interview in ${industry}. Let's start with our first question: ${shuffledGeneralQuestions[0]}`,
-      ...shuffledTypeQuestions.slice(0, 20), // Take 20 randomized type-specific questions
-      ...shuffledGeneralQuestions.slice(1, 10) // Take 9 more general questions (total ~30)
-    ];
-
-    return finalQuestions;
   };
 
-  const interviewQuestions = getQuestionsForType(config.type, config.industry, config.level);
-  
-  const [messages, setMessages] = useState<Array<{id: number, text: string, sender: 'user' | 'ai', timestamp: Date, questionNumber?: number}>>([
-    {
-      id: 1,
-      text: interviewQuestions[0],
-      sender: 'ai',
-      timestamp: new Date(),
-      questionNumber: 1
-    }
-  ]);
+  const [messages, setMessages] = useState<Array<{id: number, text: string, sender: 'user' | 'ai', timestamp: Date, isTyping?: boolean}>>([]);
   const [currentMessage, setCurrentMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [isUsingGemini, setIsUsingGemini] = useState(true);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [isAIThinking, setIsAIThinking] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const geminiRef = useRef<GoogleGenerativeAI | null>(null);
   const { toast } = useToast();
 
   const scrollToBottom = () => {
@@ -178,10 +55,64 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
     return () => clearInterval(timer);
   }, []);
 
-  // Initialize session on component mount
+  // Initialize AI and session
   useEffect(() => {
+    initializeAI();
     initializeSession();
   }, []);
+
+  const initializeAI = async () => {
+    try {
+      geminiRef.current = new GoogleGenerativeAI('AIzaSyDZHg1gfTJZNOsWrKGHpKDCPr0tq4wZY6s');
+      setIsConnected(true);
+      
+      // Start the interview with AI greeting
+      const welcomeMessage = await generateWelcomeMessage();
+      setMessages([{
+        id: 1,
+        text: welcomeMessage,
+        sender: 'ai',
+        timestamp: new Date()
+      }]);
+      
+      toast({
+        title: "AI Interview Ready",
+        description: "Your AI interviewer is ready to begin!",
+      });
+    } catch (error) {
+      console.error('Error initializing AI:', error);
+      toast({
+        title: "AI Connection Failed",
+        description: "Falling back to basic interview mode.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const generateWelcomeMessage = async (): Promise<string> => {
+    try {
+      if (!geminiRef.current) throw new Error('AI not initialized');
+      
+      const model = geminiRef.current.getGenerativeModel({ model: 'gemini-pro' });
+      const prompt = `You are an experienced ${config.industry} interviewer starting a ${config.type} interview for a ${config.level} position. 
+
+Create a warm, professional welcome message that:
+- Introduces yourself as an AI interviewer
+- Sets expectations for the ${config.duration} interview
+- Makes the candidate feel comfortable
+- Explains the interactive nature of the interview
+- Asks an engaging opening question based on their background
+
+Keep it conversational and under 100 words. End with your first question.`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text().trim();
+    } catch (error) {
+      console.error('Error generating welcome:', error);
+      return `Hello! I'm your AI interviewer for today's ${config.type} interview in ${config.industry}. This will be an interactive conversation lasting about ${config.duration}. I'll ask thoughtful questions based on your responses, so please share specific examples and experiences. Ready to begin? Tell me about yourself and what brings you to this ${config.level} role in ${config.industry}.`;
+    }
+  };
 
   const initializeSession = async () => {
     try {
@@ -194,7 +125,7 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
           user_id: currentUser.id,
           session_type: 'text',
           status: 'in_progress',
-          total_questions: interviewQuestions.length,
+          total_questions: 0, // Dynamic AI questions
           questions_answered: 0,
           started_at: new Date().toISOString()
         })
@@ -208,43 +139,52 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
     }
   };
 
-  const generateNextQuestion = async (userResponse: string): Promise<string> => {
+  const generateAIResponse = async (userResponse: string): Promise<string> => {
     try {
-      const genAI = new GoogleGenerativeAI('AIzaSyDZHg1gfTJZNOsWrKGHpKDCPr0tq4wZY6s');
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-      const context = conversationHistory.join('\n');
+      if (!geminiRef.current) throw new Error('AI not initialized');
+      
+      const model = geminiRef.current.getGenerativeModel({ model: 'gemini-pro' });
+      const context = conversationHistory.slice(-6).join('\n'); // Keep last 6 exchanges
+      
       const prompt = `You are conducting a ${config.type} interview for a ${config.level} position in ${config.industry}. 
 
-Previous conversation:
+Recent conversation:
 ${context}
 
-User's latest response: "${userResponse}"
+Candidate's latest response: "${userResponse}"
 
-Based on their response, generate the next intelligent follow-up question. The question should:
-- Be relevant to their answer and dig deeper into their experience
-- Be appropriate for a ${config.level} ${config.type} interview in ${config.industry}
-- Test both technical skills and behavioral competencies
-- Be engaging and conversational
-- Avoid repetition of previous questions
+Based on their response, generate an intelligent follow-up. You can:
+1. Ask a deeper follow-up question about what they just shared
+2. Probe for specific examples or metrics
+3. Explore a related but different topic
+4. Ask about challenges, learnings, or outcomes
+5. Test their knowledge or problem-solving approach
 
-Generate only the question, nothing else. Keep it concise (under 100 words).`;
+Guidelines:
+- Be conversational and encouraging
+- Ask only ONE question at a time
+- Make it relevant to their experience level (${config.level})
+- Focus on ${config.type} aspects
+- Keep responses under 80 words
+- Show you're listening by referencing their previous answers
+
+After ${questionCount >= 8 ? 'asking 2-3 more questions' : questionCount >= 6 ? 'a few more questions' : 'several more questions'}, you can conclude the interview naturally.
+
+${questionCount >= 10 ? 'IMPORTANT: Consider wrapping up the interview soon with a final question or thank them for their time.' : ''}
+
+Generate only your response, nothing else.`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text().trim();
     } catch (error) {
-      console.error('Error generating question with Gemini:', error);
-      // Fallback to static questions
-      const nextQuestionIndex = currentQuestionIndex + 1;
-      return nextQuestionIndex < interviewQuestions.length 
-        ? interviewQuestions[nextQuestionIndex]
-        : "Thank you for completing the interview! I have all the information I need. You can end the session when you're ready.";
+      console.error('Error generating AI response:', error);
+      return "Thank you for sharing that. Could you tell me more about a specific challenge you've faced in your career and how you overcame it?";
     }
   };
 
   const handleSendMessage = async () => {
-    if (!currentMessage.trim()) return;
+    if (!currentMessage.trim() || isLoading) return;
 
     const userMessage = {
       id: messages.length + 1,
@@ -255,81 +195,68 @@ Generate only the question, nothing else. Keep it concise (under 100 words).`;
 
     setMessages(prev => [...prev, userMessage]);
     
-    // Save this question-answer pair immediately to database
-    await saveQuestionAnswer();
-    
     // Update conversation history
-    const currentAIQuestion = messages.filter(m => m.sender === 'ai').slice(-1)[0]?.text || '';
-    setConversationHistory(prev => [...prev, `Q: ${currentAIQuestion}`, `A: ${currentMessage}`]);
+    const lastAIMessage = messages.filter(m => m.sender === 'ai').slice(-1)[0]?.text || '';
+    setConversationHistory(prev => [...prev, `AI: ${lastAIMessage}`, `User: ${currentMessage}`]);
     
+    const responseText = currentMessage;
     setCurrentMessage("");
     setIsLoading(true);
+    setIsAIThinking(true);
+
+    // Save user response
+    await saveUserResponse(responseText);
 
     try {
-      let nextQuestion: string;
+      // Generate AI response
+      const aiResponse = await generateAIResponse(responseText);
       
-      if (isUsingGemini && currentQuestionIndex < 10) { // Use Gemini for first 10 questions
-        nextQuestion = await generateNextQuestion(currentMessage);
-      } else {
-        // Fallback to static questions or completion
-        const nextQuestionIndex = currentQuestionIndex + 1;
-        if (nextQuestionIndex < interviewQuestions.length) {
-          nextQuestion = interviewQuestions[nextQuestionIndex];
-        } else {
-          nextQuestion = "Thank you for completing the interview! I have all the information I need. You can end the session when you're ready.";
-        }
-      }
-
       setTimeout(() => {
         const aiMessage = {
           id: messages.length + 2,
-          text: nextQuestion,
+          text: aiResponse,
           sender: 'ai' as const,
-          timestamp: new Date(),
-          questionNumber: currentQuestionIndex + 2
+          timestamp: new Date()
         };
 
         setMessages(prev => [...prev, aiMessage]);
-        setCurrentQuestionIndex(prev => prev + 1);
+        setQuestionCount(prev => prev + 1);
         setIsLoading(false);
-      }, 1500);
+        setIsAIThinking(false);
+      }, 1000 + Math.random() * 1000); // Simulate thinking time
     } catch (error) {
-      console.error('Error generating next question:', error);
+      console.error('Error generating AI response:', error);
       setIsLoading(false);
+      setIsAIThinking(false);
       toast({
-        title: "Error",
-        description: "Failed to generate next question. Please try again.",
+        title: "AI Error",
+        description: "There was an issue generating the next question. Please try again.",
         variant: "destructive"
       });
     }
   };
 
-  const saveQuestionAnswer = async () => {
+  const saveUserResponse = async (response: string) => {
     if (!sessionId) return;
 
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) return;
 
-      // Get the current AI question (the one being answered)
-      const aiMessages = messages.filter(m => m.sender === 'ai');
-      const currentQuestion = aiMessages[currentQuestionIndex];
-
       await supabase
         .from('text_interviews')
         .insert({
           user_id: currentUser.id,
           session_id: sessionId,
-          question_number: currentQuestionIndex + 1,
-          question_text: currentQuestion?.text || interviewQuestions[currentQuestionIndex],
-          user_answer: currentMessage,
+          question_number: questionCount + 1,
+          question_text: messages.filter(m => m.sender === 'ai').slice(-1)[0]?.text || 'Initial question',
+          user_answer: response,
           answered_at: new Date().toISOString(),
-          time_taken_seconds: Math.floor((new Date().getTime() - currentQuestion?.timestamp.getTime()) / 1000) || 0
+          time_taken_seconds: 30 // Approximate time per response
         });
 
-      console.log(`Saved Q${currentQuestionIndex + 1}: "${currentQuestion?.text}" A: "${currentMessage}"`);
     } catch (error) {
-      console.error('Error saving question-answer:', error);
+      console.error('Error saving response:', error);
     }
   };
 
@@ -342,47 +269,41 @@ Generate only the question, nothing else. Keep it concise (under 100 words).`;
   const handleEndInterview = async () => {
     try {
       if (sessionId) {
-        // Update session completion
         await supabase
           .from('practice_sessions')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
             duration_seconds: timeElapsed,
-            questions_answered: messages.filter(m => m.sender === 'user').length
+            questions_answered: questionCount
           })
           .eq('id', sessionId);
       }
 
       toast({
         title: "Interview Completed!",
-        description: "Great job! Your responses have been analyzed and saved.",
+        description: "Great job! Your AI interview session has been saved.",
       });
       onComplete();
     } catch (error) {
       console.error('Error ending interview:', error);
-      toast({
-        title: "Interview Completed!",
-        description: "Great job! Your responses have been analyzed.",
-      });
       onComplete();
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black relative overflow-hidden page-enter">
-      {/* Animated Background Elements */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black relative overflow-hidden">
+      {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-1/2 -right-1/2 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
-        <div className="absolute -bottom-1/2 -left-1/2 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-cyan-500/5 rounded-full blur-2xl animate-float"></div>
-        <div className="absolute top-3/4 right-1/4 w-48 h-48 bg-indigo-500/5 rounded-full blur-2xl animate-pulse-slow"></div>
+        <div className="absolute -top-1/2 -right-1/2 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-1/2 -left-1/2 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-cyan-500/5 rounded-full blur-2xl"></div>
       </div>
 
       <div className="relative z-10">
         <div className="container mx-auto px-6 py-6 max-w-4xl h-screen flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6 fade-in">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <Button 
                 variant="ghost" 
@@ -392,50 +313,87 @@ Generate only the question, nothing else. Keep it concise (under 100 words).`;
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-white text-reveal">AI Text Interview</h1>
-                <p className="text-white/80 text-reveal">{config.industry} • {formatTime(timeElapsed)}</p>
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  <Bot className={`h-6 w-6 ${isConnected ? 'text-green-400' : 'text-gray-400'}`} />
+                  <div>
+                    <h1 className="text-2xl font-bold text-white flex items-center">
+                      AI Chat Interview
+                      <Sparkles className="h-5 w-5 ml-2 text-yellow-400" />
+                    </h1>
+                    <p className="text-white/80">{config.industry} • {config.type} • {formatTime(timeElapsed)}</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <Button 
-              onClick={handleEndInterview}
-              variant="outline"
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm"
-            >
-              End Interview
-            </Button>
+            <div className="flex items-center space-x-3">
+              <div className="text-right">
+                <p className="text-sm text-white/60">Questions</p>
+                <p className="text-lg font-semibold text-white">{questionCount}</p>
+              </div>
+              <Button 
+                onClick={handleEndInterview}
+                variant="outline"
+                className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border-red-400/30 backdrop-blur-sm"
+              >
+                End Interview
+              </Button>
+            </div>
           </div>
 
-          {/* Messages */}
-          <Card className="flex-1 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up mb-4">
-            <CardContent className="p-4 h-full flex flex-col">
-              <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+          {/* Chat Interface */}
+          <Card className="flex-1 bg-white/5 backdrop-blur-lg border border-white/10 overflow-hidden">
+            <CardContent className="p-0 h-full flex flex-col">
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {!isConnected && (
+                  <div className="text-center p-8">
+                    <MessageCircle className="h-12 w-12 text-white/40 mx-auto mb-4" />
+                    <p className="text-white/60">Connecting to AI interviewer...</p>
+                  </div>
+                )}
+                
                 {messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} fade-in`}
+                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-300`}
                   >
-                    <div
-                      className={`max-w-[80%] p-3 rounded-lg ${
-                        message.sender === 'user'
-                          ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
-                          : 'bg-white/10 text-white border border-white/20 backdrop-blur-sm'
-                      }`}
-                    >
-                      <p className="text-sm">{message.text}</p>
-                      <p className={`text-xs mt-1 ${message.sender === 'user' ? 'text-blue-100' : 'text-white/60'}`}>
-                        {message.timestamp.toLocaleTimeString()}
-                      </p>
+                    <div className={`max-w-[85%] ${message.sender === 'user' ? 'order-2' : 'order-1'}`}>
+                      {message.sender === 'ai' && (
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Bot className="h-4 w-4 text-blue-400" />
+                          <span className="text-xs text-white/60">AI Interviewer</span>
+                        </div>
+                      )}
+                      <div
+                        className={`p-4 rounded-2xl ${
+                          message.sender === 'user'
+                            ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white ml-4'
+                            : 'bg-white/10 text-white border border-white/20 backdrop-blur-sm mr-4'
+                        }`}
+                      >
+                        <p className="text-sm leading-relaxed">{message.text}</p>
+                        <p className={`text-xs mt-2 ${message.sender === 'user' ? 'text-blue-100' : 'text-white/50'}`}>
+                          {message.timestamp.toLocaleTimeString()}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 ))}
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-white/10 text-white border border-white/20 backdrop-blur-sm p-3 rounded-lg">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                        <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                
+                {isAIThinking && (
+                  <div className="flex justify-start animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="max-w-[85%] mr-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Bot className="h-4 w-4 text-blue-400" />
+                        <span className="text-xs text-white/60">AI Interviewer is thinking...</span>
+                      </div>
+                      <div className="bg-white/10 text-white border border-white/20 backdrop-blur-sm p-4 rounded-2xl">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -443,23 +401,26 @@ Generate only the question, nothing else. Keep it concise (under 100 words).`;
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input */}
-              <div className="flex space-x-2">
-                <Input
-                  value={currentMessage}
-                  onChange={(e) => setCurrentMessage(e.target.value)}
-                  placeholder="Type your response..."
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  disabled={isLoading}
-                  className="flex-1 bg-white/10 border-white/20 text-white placeholder-white/60 backdrop-blur-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <Button 
-                  onClick={handleSendMessage} 
-                  disabled={isLoading || !currentMessage.trim()}
-                  className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+              {/* Input Area */}
+              <div className="border-t border-white/10 p-6 bg-white/5 backdrop-blur-sm">
+                <div className="flex space-x-4">
+                  <Input
+                    value={currentMessage}
+                    onChange={(e) => setCurrentMessage(e.target.value)}
+                    placeholder="Type your response here..."
+                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                    disabled={isLoading || !isConnected}
+                    className="flex-1 bg-white/10 border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-blue-500 focus:border-transparent h-12 text-base"
+                  />
+                  <Button 
+                    onClick={handleSendMessage} 
+                    disabled={isLoading || !currentMessage.trim() || !isConnected}
+                    className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white h-12 px-6"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-white/40 mt-2">Press Enter to send • Powered by Gemini AI</p>
               </div>
             </CardContent>
           </Card>

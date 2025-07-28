@@ -1,14 +1,11 @@
-
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Mic, MicOff, Phone, PhoneOff, Volume2, AlertCircle, Globe, X } from "lucide-react";
+import { ArrowLeft, Mic, MicOff, Phone, PhoneOff, Volume2, AlertCircle, Sparkles, Zap } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import Vapi from "@vapi-ai/web";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface VoiceInterviewProps {
   onBack: () => void;
@@ -29,26 +26,32 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
   const [conversationMessages, setConversationMessages] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [isEnding, setIsEnding] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+  const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [userSpeaking, setUserSpeaking] = useState(false);
   const { toast } = useToast();
   const initializeAttempted = useRef(false);
   const stopRequested = useRef(false);
   const questionCounter = useRef(0);
 
-  const languages = [
-    { code: "en", name: "English", vapiLocale: "en-US" as const }
-  ];
+  const config = {
+    industry: interviewConfig.industry || "Software Engineering",
+    level: interviewConfig.level || "Mid-level", 
+    type: interviewConfig.type || "Behavioral",
+    duration: interviewConfig.duration || "15 minutes"
+  };
 
-  // Initialize Vapi with improved error handling
+  // Initialize Vapi with enhanced AI-powered assistant
   useEffect(() => {
     if (initializeAttempted.current) return;
     initializeAttempted.current = true;
 
     const initializeVapi = async () => {
       try {
-        console.log("Initializing Vapi...");
+        console.log("Initializing AI Voice Interview...");
+        setConnectionStatus('connecting');
         
         // Request microphone permission first
         try {
@@ -58,34 +61,39 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           console.error("Microphone permission denied:", micError);
           toast({
             title: "Microphone Access Required",
-            description: "Please allow microphone access to use voice interviews.",
+            description: "Please allow microphone access to use AI voice interviews.",
             variant: "destructive",
           });
           setHasError(true);
+          setConnectionStatus('disconnected');
           return;
         }
 
         const vapiInstance = new Vapi("8a96f7dc-932d-4ed3-b067-d125fcc61afb");
         setVapi(vapiInstance);
         setIsInitialized(true);
+        setConnectionStatus('connected');
 
-        // Set up event listeners with improved error handling
+        // Enhanced event listeners for AI-powered interview
         vapiInstance.on("call-start", () => {
-          console.log("Call started successfully");
+          console.log("AI Voice Interview started");
           setIsCallActive(true);
           setHasError(false);
           setIsEnding(false);
           stopRequested.current = false;
           toast({
-            title: "Interview Started",
-            description: "Your AI interview has begun. Speak clearly!",
+            title: "AI Interview Started",
+            description: "Your intelligent voice interview has begun!",
           });
         });
 
         vapiInstance.on("call-end", async () => {
-          console.log("Call ended");
+          console.log("AI Interview ended");
           setIsCallActive(false);
           setIsEnding(false);
+          setConnectionStatus('disconnected');
+          setAiSpeaking(false);
+          setUserSpeaking(false);
           
           // Update session completion
           if (sessionId) {
@@ -106,52 +114,51 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           
           if (!stopRequested.current) {
             toast({
-              title: "Interview Completed",
-              description: "Your interview session has ended and been saved.",
+              title: "AI Interview Completed",
+              description: "Your intelligent voice interview has been saved and analyzed.",
             });
           }
           setTimeout(() => onComplete(), 1000);
         });
 
+        vapiInstance.on("speech-start", () => {
+          setAiSpeaking(true);
+          setUserSpeaking(false);
+        });
+
+        vapiInstance.on("speech-end", () => {
+          setAiSpeaking(false);
+          setUserSpeaking(false);
+        });
+
         vapiInstance.on("message", (message: any) => {
-          console.log("Vapi message:", message);
+          console.log("AI Interview message:", message);
           
-          // Handle all transcript types to improve voice recognition
-          if (message.type === "transcript" && message.transcript) {
-            // Log all transcripts for debugging
-            console.log(`Transcript (${message.transcriptType}):`, message.transcript, "Role:", message.role);
+          // Handle transcripts for AI conversation tracking
+          if (message.type === "transcript" && message.transcript && message.transcriptType === "final") {
+            const messageText = `${message.role === "user" ? "You" : "AI Interviewer"}: ${message.transcript}`;
+            setConversationMessages(prev => [...prev, messageText]);
             
-            // Only save final transcripts to avoid duplicates
-            if (message.transcriptType === "final") {
-              const messageText = `${message.role === "user" ? "You" : "Interviewer"}: ${message.transcript}`;
-              setConversationMessages(prev => [...prev, messageText]);
-              
-              // Save voice interview data for user responses only
-              if (sessionId && message.role === "user" && message.transcript.trim()) {
-                questionCounter.current += 1;
-                saveVoiceInterviewData(message.transcript, questionCounter.current);
-              }
+            // Save voice interview data for user responses
+            if (sessionId && message.role === "user" && message.transcript.trim()) {
+              questionCounter.current += 1;
+              saveVoiceInterviewData(message.transcript, questionCounter.current);
             }
           }
           
-          // Enhanced speech detection for better voice recognition
-          if (message.type === "speech-update") {
-            console.log("Speech update:", message.status, "Role:", message.role);
-          }
-          
-          // Check for stop requests from user - only if transcript exists
+          // Enhanced stop request detection
           if (message.type === "transcript" && message.transcript && message.role === "user") {
             const transcript = message.transcript.toLowerCase();
             const stopKeywords = [
               "stop interview", "end interview", "stop this interview", 
               "end this interview", "i want to stop", "please stop",
-              "साक्षात्कार बंद करो", "साक्षात्कार समाप्त करो", "रोको"
+              "finish interview", "conclude interview"
             ];
             
             const shouldStop = stopKeywords.some(keyword => transcript.includes(keyword));
             
             if (shouldStop && !stopRequested.current) {
-              console.log("User requested to stop the interview");
+              console.log("User requested to stop the AI interview");
               stopRequested.current = true;
               setTimeout(() => {
                 if (vapi && isCallActive) {
@@ -161,7 +168,7 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
             }
           }
           
-          // Check if AI is concluding the interview - only if transcript exists
+          // AI conclusion detection
           if (message.type === "transcript" && message.transcript && message.role === "assistant") {
             const transcript = message.transcript.toLowerCase();
             const conclusionKeywords = [
@@ -170,8 +177,7 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
               "we've reached the end",
               "interview is complete",
               "thank you for joining us today",
-              "आपका समय देने के लिए धन्यवाद",
-              "यह हमारा साक्षात्कार समाप्त होता है"
+              "great conversation today"
             ];
             
             const isConclusion = conclusionKeywords.some(keyword => 
@@ -187,35 +193,28 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
               }, 3000);
             }
           }
-          
-          // Handle conversation-end messages
-          if (message.type === "conversation-end" || message.type === "session-complete") {
-            console.log("Session completed by AI");
-            setTimeout(() => {
-              setIsCallActive(false);
-              onComplete();
-            }, 1000);
-          }
         });
 
         vapiInstance.on("error", (error: any) => {
-          console.error("Vapi error:", error);
+          console.error("AI Interview error:", error);
           setHasError(true);
           setIsCallActive(false);
           setIsEnding(false);
+          setConnectionStatus('disconnected');
           toast({
-            title: "Voice Interview Error",
-            description: "There was an issue with the voice system. Try restarting or use text interview.",
+            title: "AI Voice System Error",
+            description: "There was an issue with the AI voice system. Try restarting or use chat interview.",
             variant: "destructive",
           });
         });
 
       } catch (error) {
-        console.error("Failed to initialize Vapi:", error);
+        console.error("Failed to initialize AI Voice Interview:", error);
         setHasError(true);
+        setConnectionStatus('disconnected');
         toast({
-          title: "Voice System Unavailable",
-          description: "Voice interviews are currently unavailable. Please use the text interview option.",
+          title: "AI Voice System Unavailable",
+          description: "AI voice interviews are currently unavailable. Please use the chat interview option.",
           variant: "destructive",
         });
       }
@@ -228,13 +227,13 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
         try {
           vapi.stop();
         } catch (error) {
-          console.error("Error stopping Vapi:", error);
+          console.error("Error stopping AI Interview:", error);
         }
       }
     };
   }, [onComplete, toast]);
 
-  // Timer for call duration - modified to handle auto-completion
+  // Timer for call duration with auto-completion
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isCallActive && !isEnding) {
@@ -245,7 +244,7 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           
           // Auto-end call when time limit reached
           if (newDuration >= maxDurationSeconds && !stopRequested.current) {
-            console.log("Time limit reached, ending call");
+            console.log("AI Interview time limit reached");
             stopRequested.current = true;
             if (vapi) {
               vapi.stop();
@@ -262,22 +261,14 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
   }, [isCallActive, isEnding, vapi]);
 
   const getDurationInMinutes = () => {
-    return parseInt(interviewConfig.duration?.split(' ')[0] || '15');
+    return parseInt(config.duration?.split(' ')[0] || '15');
   };
-  
-  // Get config with defaults
-  const getConfigWithDefaults = () => ({
-    industry: interviewConfig.industry || "Software Engineering",
-    level: interviewConfig.level || "Mid-level", 
-    type: interviewConfig.type || "Behavioral",
-    duration: interviewConfig.duration || "15 minutes"
-  });
 
-  const startInterview = async () => {
+  const startAIInterview = async () => {
     if (!vapi || !isInitialized) {
       toast({
-        title: "Voice System Not Ready",
-        description: "Please wait for the system to initialize or use text interview.",
+        title: "AI System Not Ready",
+        description: "Please wait for the AI system to initialize or use chat interview.",
         variant: "destructive",
       });
       return;
@@ -286,182 +277,119 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
     if (hasError) {
       toast({
         title: "System Error",
-        description: "Please refresh the page or try the text interview option.",
+        description: "Please refresh the page or try the chat interview option.",
         variant: "destructive",
       });
       return;
     }
 
     const durationMinutes = getDurationInMinutes();
-    const currentLanguage = languages.find(lang => lang.code === selectedLanguage);
-    const config = getConfigWithDefaults();
+    
+    // Initialize session in database
+    await initializeSession();
 
-    // Enhanced assistant configuration with language support
+    // Enhanced AI assistant configuration with intelligent conversation
     const assistantConfig = {
-      name: `${config.type} Interview Assistant`,
+      name: `AI ${config.type} Interview Assistant`,
       model: {
         provider: "openai" as const,
         model: "gpt-4" as const,
         messages: [
           {
             role: "system" as const,
-            content: selectedLanguage === "hi" 
-              ? `आप एक अनुभवी ${config.industry} साक्षात्कारकर्ता हैं जो ${config.level} पद के लिए ${config.type} साक्षात्कार ले रहे हैं। साक्षात्कार लगभग ${durationMinutes} मिनट का होना चाहिए।
+            content: `You are an advanced AI interviewer conducting a ${config.type} interview for a ${config.level} position in ${config.industry}. This is a ${durationMinutes}-minute intelligent conversation.
 
-आपकी भूमिका:
-- एक गर्मजोशी भरे, पेशेवर अभिवादन के साथ शुरुआत करें
-- उद्योग (${config.industry}) और स्तर (${config.level}) के आधार पर प्रासंगिक साक्षात्कार प्रश्न पूछें
-- उत्तरों को ध्यान से सुनें और विचारशील फॉलो-अप प्रश्न पूछें
-- बातचीत को प्राकृतिक, पेशेवर और आकर्षक रखें
-- साक्षात्कार को ${durationMinutes}-मिनट की समय सीमा में फिट करने के लिए गति निर्धारित करें
-- तकनीकी कौशल और सांस्कृतिक फिट दोनों का परीक्षण करने वाले प्रश्न पूछें
-
-IMPORTANT: प्रत्येक साक्षात्कार के लिए अलग-अलग प्रश्न चुनें। पुराने प्रश्नों को दोहराने से बचें। अपने प्रश्नों को उम्मीदवार के उत्तरों के आधार पर अनुकूलित करें।
-
-${config.type === 'behavioral' ? 'व्यवहारिक प्रश्न उदाहरण: किसी चुनौतीपूर्ण परियोजना के बारे में बताएं, टीम संघर्ष को कैसे संभालते हैं, दबाव में काम करने का अनुभव।' : ''}
-${config.type === 'technical' ? 'तकनीकी प्रश्न उदाहरण: आपकी समस्या निवारण विधि, नई तकनीकों के साथ अनुभव, कोड गुणवत्ता सुनिश्चित करने के तरीके।' : ''}
-${config.type === 'leadership' ? 'नेतृत्व प्रश्न उदाहरण: टीम का नेतृत्व कैसे करते हैं, कठिन निर्णय लेने का अनुभव, संघर्ष प्रबंधन।' : ''}
-
-महत्वपूर्ण समय:
-- ${Math.max(durationMinutes-2, 1)} मिनट के बाद, साक्षात्कार को समाप्त करना शुरू करें
-- अगर उम्मीदवार कहता है "साक्षात्कार बंद करो" या "रोको", तुरंत विनम्रता से साक्षात्कार समाप्त करें
-- अंत में कहें "आज आपका समय देने के लिए धन्यवाद। यह हमारा साक्षात्कार समाप्त होता है।"
-
-दिशानिर्देश:
-- अपने उत्तर संक्षिप्त लेकिन पेशेवर रखें (50 शब्दों के तहत)
-- एक समय में एक प्रश्न पूछें
-- उनके उत्तरों में रुचि दिखाएं
-- एक सहायक लेकिन पेशेवर स्वर बनाए रखें
-
-शुरुआत इसके साथ करें: "नमस्ते! आज हमारे साथ जुड़ने के लिए धन्यवाद। मैं ${config.industry} में आपके बारे में और आपके अनुभव के बारे में जानने के लिए उत्साहित हूं। आइए शुरुआत करते हैं।"`
-              : `You are an experienced ${config.industry} interviewer conducting a ${config.type} interview for a ${config.level} position. The interview should last approximately ${durationMinutes} minutes.
-
-CRITICAL: You MUST use intelligent, contextual questioning powered by AI reasoning. Do NOT use repetitive or static questions.
-
-Your role:
-- Start with a warm, professional greeting
-- Use AI-powered reasoning to generate relevant questions based on the industry (${config.industry}) and level (${config.level})
-- Listen carefully to responses and generate intelligent follow-up questions using contextual analysis
-- Keep the conversation natural, professional, and engaging
-- Pace the interview to fit the ${durationMinutes}-minute timeframe
-- Use AI to assess responses and ask probing questions that test both technical skills and cultural fit
-- Provide encouraging feedback when appropriate
+CORE AI INTERVIEW PRINCIPLES:
+- You are powered by advanced AI reasoning and should demonstrate intelligent, contextual questioning
+- NEVER use repetitive or scripted questions - each question should be unique and build on previous responses
+- Use AI-powered analysis to understand the candidate's responses and ask probing follow-ups
+- Adapt your questioning style in real-time based on their answers and experience level
+- Be conversational, encouraging, and professionally engaging
 
 INTELLIGENT QUESTIONING STRATEGY:
-- NEVER repeat questions - each question should be unique and contextual
-- Analyze the candidate's previous responses to generate deeper follow-up questions
-- Adapt your questioning style based on their experience level and answers
-- Use reasoning to identify gaps in their responses and probe further
-- Generate questions that build upon their previous answers
-- Ask clarifying questions when responses are vague
-- Use contextual intelligence to explore interesting points they mention
+- Analyze each response for depth, specificity, and competency indicators
+- Generate contextual follow-up questions that probe deeper into their experiences
+- Use reasoning to identify knowledge gaps and explore them appropriately
+- Ask for specific examples, metrics, outcomes, and learnings
+- Explore decision-making processes and problem-solving approaches
+- Build questions that connect different aspects of their experience
 
-${config.type === 'behavioral' ? 'BEHAVIORAL INTELLIGENCE: Analyze their behavioral examples for depth, use STAR method probing, ask for specific metrics and outcomes, explore decision-making processes, probe leadership examples.' : ''}
-${config.type === 'technical' ? 'TECHNICAL INTELLIGENCE: Assess their technical depth, probe implementation details, ask about trade-offs and alternatives, explore problem-solving methodology, test architectural understanding.' : ''}
-${config.type === 'leadership' ? 'LEADERSHIP INTELLIGENCE: Explore management philosophy, probe team building strategies, assess conflict resolution skills, test strategic thinking, evaluate decision-making under pressure.' : ''}
+INTERVIEW STRUCTURE:
+1. Warm welcome introducing yourself as an AI interviewer (30 seconds)
+2. Dynamic questioning based on their responses (${durationMinutes-2} minutes)
+3. Natural conclusion thanking them (1 minute)
 
-REASONING-BASED FOLLOW-UPS:
-- If they mention a project, ask about specific challenges and solutions
-- If they mention teamwork, explore their role and contributions
-- If they mention technologies, probe depth of understanding
-- If they mention achievements, ask for metrics and impact
-- If they mention failures, explore lessons learned and improvements
+${config.type === 'behavioral' ? `
+BEHAVIORAL AI INTELLIGENCE:
+- Probe for STAR method details (Situation, Task, Action, Result)
+- Explore leadership moments, conflict resolution, and decision-making
+- Ask about challenges, failures, and learning experiences
+- Investigate teamwork, communication, and adaptability
+- Use AI reasoning to assess cultural fit indicators
+` : ''}
 
-IMPORTANT TIMING:
-- After ${Math.max(durationMinutes-2, 1)} minutes, start wrapping up the interview
-- If the candidate says "stop interview" or "end interview", politely conclude immediately
-- At the end, say "Thank you for your time today. This concludes our interview. We'll be in touch with next steps."
+${config.type === 'technical' ? `
+TECHNICAL AI INTELLIGENCE:
+- Assess technical depth and understanding of core concepts
+- Explore problem-solving methodology and approach
+- Investigate trade-offs, architecture decisions, and best practices
+- Probe implementation details and technical challenges
+- Use reasoning to evaluate technical competency level
+` : ''}
 
-INTELLIGENT RESPONSE GUIDELINES:
-- Use AI reasoning to craft responses that show deep listening
-- Keep responses concise but demonstrate understanding (under 50 words)
-- Ask one targeted question at a time based on their specific answer
-- Show genuine interest through contextual follow-ups
-- Maintain a supportive but professional tone
-- Use their own words and examples to frame follow-up questions
-- Be encouraging while maintaining interview rigor
+${config.type === 'leadership' ? `
+LEADERSHIP AI INTELLIGENCE:
+- Explore management philosophy and team building strategies
+- Investigate conflict resolution and difficult decision scenarios
+- Assess strategic thinking and vision-setting abilities
+- Probe delegation, motivation, and performance management
+- Use AI analysis to evaluate leadership potential
+` : ''}
 
-Start with: "Hello! Thank you for joining us today. I'm excited to learn more about you and your experience in ${config.industry}. Let's begin with you telling me a bit about yourself and what specifically interests you about this ${config.level} position."`
+CONVERSATION GUIDELINES:
+- Keep responses concise (under 50 words per question)
+- Ask only ONE question at a time
+- Show active listening by referencing their previous answers
+- Use encouraging phrases like "That's interesting..." or "Tell me more about..."
+- Maintain professional warmth throughout
+- End naturally when time is appropriate or candidate requests to stop
+
+TIME MANAGEMENT:
+- After ${Math.max(durationMinutes-2, 1)} minutes, begin wrapping up
+- If candidate says "stop interview" or similar, conclude gracefully immediately
+- End with: "Thank you for your time today. This concludes our AI-powered interview."
+
+Start with: "Hello! I'm your AI interviewer today, powered by advanced conversation technology. I'm excited to have an intelligent discussion about your experience in ${config.industry}. This will be a dynamic conversation where I'll ask thoughtful questions based on your responses. Let's begin - tell me about yourself and what draws you to this ${config.level} role."`
           }
-        ],
-        temperature: 0.7,
-        maxTokens: 150
+        ]
       },
       voice: {
         provider: "11labs" as const,
-        voiceId: selectedLanguage === "hi" ? "pFZP5JQG7iQjIQuC4Bku" : "21m00Tcm4TlvDq8ikWAM",
-        stability: 0.8,
-        similarityBoost: 0.8
+        voiceId: "pNInz6obpgDQGcFmaJgB" // Professional voice
       },
-      firstMessage: selectedLanguage === "hi" 
-        ? `नमस्ते! आज हमारे साथ जुड़ने के लिए धन्यवाद। मैं ${config.industry} में आपके बारे में और आपके अनुभव के बारे में जानने के लिए उत्साहित हूं। आइए शुरुआत करते हैं - क्या आप अपने बारे में थोड़ा बता सकते हैं?`
-        : `Hello! Thank you for joining us today. I'm excited to learn more about you and your experience in ${config.industry}. Let's begin - can you tell me a bit about yourself and what interests you about this ${config.level} position?`,
+      firstMessage: `Hello! I'm your AI interviewer today, powered by advanced conversation technology. I'm excited to have an intelligent discussion about your experience in ${config.industry}. Let's begin - tell me about yourself and what draws you to this ${config.level} role.`,
       transcriber: {
         provider: "deepgram" as const,
         model: "nova-2" as const,
-        language: currentLanguage?.vapiLocale || ("en-US" as const),
-        keywords: ["interview", "question", "answer", "experience", "project", "challenge"]
-      }
+        language: "en-US" as const
+      },
+      silenceTimeoutSeconds: 30,
+      maxDurationSeconds: durationMinutes * 60,
+      backgroundSound: "office" as const
     };
 
     try {
-      console.log("Starting Vapi call with config:", assistantConfig);
-      setConversationMessages([]);
-      stopRequested.current = false;
-      questionCounter.current = 0;
-      
-      // Initialize session before starting
-      await initializeSession();
-      
+      console.log("Starting AI Interview with config:", assistantConfig);
       await vapi.start(assistantConfig);
+      setConnectionStatus('connected');
     } catch (error) {
-      console.error("Failed to start interview:", error);
-      setHasError(true);
+      console.error("Error starting AI interview:", error);
       toast({
-        title: "Failed to Start Voice Interview",
-        description: "Please check your microphone and internet connection, then try again.",
+        title: "Failed to Start AI Interview",
+        description: "Please try again or use the chat interview option.",
         variant: "destructive",
       });
     }
-  };
-
-  const endInterview = async () => {
-    if (vapi && isCallActive) {
-      try {
-        setIsEnding(true);
-        stopRequested.current = true;
-        toast({
-          title: "Ending Interview",
-          description: "Your interview is being concluded...",
-        });
-        await vapi.stop();
-      } catch (error) {
-        console.error("Error ending interview:", error);
-        setIsCallActive(false);
-        setIsEnding(false);
-      }
-    }
-  };
-
-  const toggleMute = async () => {
-    if (vapi && isCallActive) {
-      try {
-        await vapi.setMuted(!isMuted);
-        setIsMuted(!isMuted);
-        toast({
-          title: isMuted ? "Unmuted" : "Muted",
-          description: isMuted ? "You can now speak" : "Your microphone is muted",
-        });
-      } catch (error) {
-        console.error("Error toggling mute:", error);
-      }
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const initializeSession = async () => {
@@ -475,7 +403,7 @@ Start with: "Hello! Thank you for joining us today. I'm excited to learn more ab
           user_id: currentUser.id,
           session_type: 'voice',
           status: 'in_progress',
-          total_questions: 10,
+          total_questions: 0, // Dynamic AI questions
           questions_answered: 0,
           started_at: new Date().toISOString()
         })
@@ -491,14 +419,10 @@ Start with: "Hello! Thank you for joining us today. I'm excited to learn more ab
 
   const saveVoiceInterviewData = async (transcript: string, questionNumber: number) => {
     if (!sessionId) return;
-    
+
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) return;
-
-      // Get the last AI question from conversation messages
-      const aiMessages = conversationMessages.filter(msg => msg.startsWith("Interviewer:"));
-      const lastQuestion = aiMessages[aiMessages.length - 1]?.replace("Interviewer: ", "") || "Interview question";
 
       await supabase
         .from('voice_interviews')
@@ -506,33 +430,62 @@ Start with: "Hello! Thank you for joining us today. I'm excited to learn more ab
           user_id: currentUser.id,
           session_id: sessionId,
           question_number: questionNumber,
-          question_text: lastQuestion,
-          user_answer_transcript: transcript,
-          answered_at: new Date().toISOString(),
-          audio_duration_seconds: 0, // Will be updated if needed
-          time_taken_seconds: callDuration
+          question_text: 'AI Generated Question',
+          user_answer: transcript,
+          answered_at: new Date().toISOString()
         });
-      
-      console.log(`Saved voice interview data for question ${questionNumber}: ${transcript}`);
+
     } catch (error) {
-      console.error('Error saving voice interview data:', error);
+      console.error('Error saving voice data:', error);
+    }
+  };
+
+  const stopInterview = () => {
+    if (vapi && isCallActive) {
+      setIsEnding(true);
+      stopRequested.current = true;
+      vapi.stop();
+    }
+  };
+
+  const toggleMute = () => {
+    if (vapi && isCallActive) {
+      if (isMuted) {
+        vapi.setMuted(false);
+      } else {
+        vapi.setMuted(true);
+      }
+      setIsMuted(!isMuted);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getConnectionColor = () => {
+    switch (connectionStatus) {
+      case 'connecting': return 'text-yellow-400';
+      case 'connected': return 'text-green-400';
+      case 'disconnected': return 'text-gray-400';
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black relative overflow-hidden page-enter">
-      {/* Animated Background Elements */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black relative overflow-hidden">
+      {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-1/2 -right-1/2 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
-        <div className="absolute -bottom-1/2 -left-1/2 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-cyan-500/5 rounded-full blur-2xl animate-float"></div>
-        <div className="absolute top-3/4 right-1/4 w-48 h-48 bg-indigo-500/5 rounded-full blur-2xl animate-pulse-slow"></div>
+        <div className="absolute -top-1/2 -right-1/2 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-1/2 -left-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-pink-500/5 rounded-full blur-2xl"></div>
       </div>
 
       <div className="relative z-10">
-        <div className="container mx-auto px-6 py-8">
+        <div className="container mx-auto px-6 py-6 max-w-4xl h-screen flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8 fade-in">
+          <div className="flex items-center justify-between mb-8">
             <div className="flex items-center">
               <Button 
                 variant="ghost" 
@@ -542,225 +495,165 @@ Start with: "Hello! Thank you for joining us today. I'm excited to learn more ab
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-white text-reveal">AI Voice Interview</h1>
-                <p className="text-white/80 text-reveal">Practice your interview skills with our AI interviewer</p>
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  <Mic className={`h-6 w-6 ${getConnectionColor()}`} />
+                  <div>
+                    <h1 className="text-2xl font-bold text-white flex items-center">
+                      AI Voice Interview
+                      <Sparkles className="h-5 w-5 ml-2 text-yellow-400" />
+                      <Zap className="h-4 w-4 ml-1 text-purple-400" />
+                    </h1>
+                    <p className="text-white/80">{config.industry} • {config.type} • {formatTime(callDuration)}</p>
+                  </div>
+                </div>
               </div>
             </div>
-            {isCallActive && (
-              <div className="text-lg font-mono text-cyan-400 fade-in">
-                {formatTime(callDuration)} / {interviewConfig.duration}
-              </div>
-            )}
+            <div className="flex items-center space-x-3">
+              <Badge variant="outline" className={`${getConnectionColor()} border-current`}>
+                {connectionStatus.charAt(0).toUpperCase() + connectionStatus.slice(1)}
+              </Badge>
+            </div>
           </div>
 
-          <div className="max-w-4xl mx-auto">
-            {/* Interview Configuration */}
-            <Card className="mb-8 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up">
-              <CardHeader>
-                <CardTitle className="text-white">Interview Configuration</CardTitle>
-                <CardDescription className="text-white/80">Your personalized interview setup</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-200 border-cyan-500/30">
-                    {interviewConfig.industry}
-                  </Badge>
-                  <Badge variant="secondary" className="bg-blue-500/20 text-blue-200 border-blue-500/30">
-                    {interviewConfig.level}
-                  </Badge>
-                  <Badge variant="secondary" className="bg-purple-500/20 text-purple-200 border-purple-500/30">
-                    {interviewConfig.type} Interview
-                  </Badge>
-                  <Badge variant="secondary" className="bg-green-500/20 text-green-200 border-green-500/30">
-                    {interviewConfig.duration}
-                  </Badge>
+          {/* Main Interview Interface */}
+          <Card className="flex-1 bg-white/5 backdrop-blur-lg border border-white/10">
+            <CardContent className="p-8 h-full flex flex-col justify-center items-center text-center">
+              {hasError ? (
+                <div className="space-y-6">
+                  <AlertCircle className="h-16 w-16 text-red-400 mx-auto" />
+                  <div>
+                    <h3 className="text-xl font-semibold text-white mb-2">AI System Error</h3>
+                    <p className="text-white/60 mb-4">
+                      There was an issue with the AI voice system. Please refresh the page or try the chat interview.
+                    </p>
+                    <Button onClick={onBack} variant="outline" className="text-white border-white/20">
+                      Try Chat Interview
+                    </Button>
+                  </div>
                 </div>
-                
-              </CardContent>
-            </Card>
+              ) : !isCallActive ? (
+                <div className="space-y-8 max-w-md">
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <div className="w-24 h-24 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mx-auto mb-4 flex items-center justify-center">
+                        <Mic className="h-12 w-12 text-white" />
+                      </div>
+                      <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                        <Sparkles className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                    <h2 className="text-2xl font-bold text-white">AI-Powered Voice Interview</h2>
+                    <p className="text-white/70 leading-relaxed">
+                      Experience an intelligent voice interview powered by advanced AI. The interviewer will ask contextual questions, 
+                      listen to your responses, and engage in natural conversation just like a real interview.
+                    </p>
+                  </div>
 
-            {/* Error State */}
-            {hasError && (
-              <Card className="mb-8 border-red-500/20 bg-red-500/10 backdrop-blur-md slide-up">
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-2 text-red-300">
-                    <AlertCircle className="h-5 w-5" />
-                    <div>
-                      <h3 className="font-semibold">Voice Interview Unavailable</h3>
-                      <p className="text-sm">There's an issue with the voice system. Please try the text interview instead.</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="bg-white/10 p-3 rounded-lg">
+                      <p className="text-white/60">Industry</p>
+                      <p className="text-white font-medium">{config.industry}</p>
+                    </div>
+                    <div className="bg-white/10 p-3 rounded-lg">
+                      <p className="text-white/60">Type</p>
+                      <p className="text-white font-medium">{config.type}</p>
+                    </div>
+                    <div className="bg-white/10 p-3 rounded-lg">
+                      <p className="text-white/60">Level</p>
+                      <p className="text-white font-medium">{config.level}</p>
+                    </div>
+                    <div className="bg-white/10 p-3 rounded-lg">
+                      <p className="text-white/60">Duration</p>
+                      <p className="text-white font-medium">{config.duration}</p>
                     </div>
                   </div>
-                  <Button 
-                    onClick={onBack}
-                    className="mt-4 bg-red-500/80 hover:bg-red-500/90 text-white"
-                  >
-                    Try Text Interview
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
 
-            {/* Voice Interview Interface */}
-            <div className="grid lg:grid-cols-2 gap-8">
-              {/* Call Controls */}
-              <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 card-entrance">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-white">
-                    <Volume2 className="h-5 w-5 mr-2" />
-                    Voice Interview
-                  </CardTitle>
-                  <CardDescription className="text-white/90">
-                    {!isInitialized 
-                      ? "Initializing voice system..."
-                      : isCallActive 
-                        ? "Interview in progress - speak naturally with the AI interviewer"
-                        : "Click start to begin your voice interview session"
-                    }
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Call Status */}
-                  <div className="text-center py-8">
-                    <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4 transition-all duration-300 ${
-                      isCallActive ? 'bg-cyan-500/20 animate-pulse border border-cyan-500/40' : hasError ? 'bg-red-500/20 border border-red-500/40' : 'bg-white/10 border border-white/20'
-                    }`}>
-                      {isCallActive ? (
-                        <Phone className="h-10 w-10 text-cyan-400" />
-                      ) : hasError ? (
-                        <AlertCircle className="h-10 w-10 text-red-400" />
-                      ) : (
-                        <PhoneOff className="h-10 w-10 text-white/70" />
-                      )}
-                    </div>
-                    <div className="text-lg font-semibold mb-2 text-white">
-                      {!isInitialized ? 'Initializing...' : 
-                       isEnding ? 'Ending Interview...' :
-                       isCallActive ? 'Interview Active' : 
-                       hasError ? 'System Error' : 'Ready to Start'}
-                    </div>
-                    {isCallActive && (
-                      <div className="text-2xl font-mono text-cyan-400">
-                        {formatTime(callDuration)}
+                  <Button 
+                    onClick={startAIInterview}
+                    disabled={!isInitialized || connectionStatus !== 'connected'}
+                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-6 text-lg font-semibold"
+                  >
+                    <Mic className="h-5 w-5 mr-3" />
+                    Start AI Interview
+                  </Button>
+                  
+                  <p className="text-xs text-white/40">
+                    Make sure your microphone is working and you're in a quiet environment
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {/* Interview Status */}
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <div className={`w-32 h-32 rounded-full mx-auto flex items-center justify-center border-4 transition-all duration-300 ${
+                        aiSpeaking ? 'border-purple-400 bg-purple-500/20 animate-pulse' : 
+                        userSpeaking ? 'border-green-400 bg-green-500/20 animate-pulse' :
+                        'border-white/20 bg-white/5'
+                      }`}>
+                        <Mic className={`h-16 w-16 transition-colors ${
+                          aiSpeaking ? 'text-purple-400' : 
+                          userSpeaking ? 'text-green-400' : 
+                          'text-white/60'
+                        }`} />
                       </div>
-                    )}
+                      <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+                        <Badge variant="secondary" className={`${
+                          aiSpeaking ? 'bg-purple-500/20 text-purple-300' : 
+                          userSpeaking ? 'bg-green-500/20 text-green-300' : 
+                          'bg-white/10 text-white/60'
+                        }`}>
+                          {aiSpeaking ? 'AI Speaking' : userSpeaking ? 'You Speaking' : 'Listening'}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <h2 className="text-2xl font-bold text-white">AI Interview in Progress</h2>
+                    <p className="text-white/70">
+                      The AI interviewer is conducting an intelligent conversation with you. 
+                      Speak naturally and provide detailed responses.
+                    </p>
+                  </div>
+
+                  {/* Interview Stats */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/10 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-white">{formatTime(callDuration)}</p>
+                      <p className="text-white/60 text-sm">Duration</p>
+                    </div>
+                    <div className="bg-white/10 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-white">{questionCounter.current}</p>
+                      <p className="text-white/60 text-sm">Responses</p>
+                    </div>
                   </div>
 
                   {/* Controls */}
                   <div className="flex justify-center space-x-4">
-                    {!isCallActive && !hasError ? (
-                      <Button 
-                        onClick={startInterview}
-                        disabled={!isInitialized}
-                        className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-                        size="lg"
-                      >
-                        <Phone className="h-4 w-4 mr-2" />
-                        {isInitialized ? 'Start Voice Interview' : 'Initializing...'}
-                      </Button>
-                    ) : isCallActive ? (
-                      <>
-                        <Button
-                          onClick={toggleMute}
-                          variant={isMuted ? "destructive" : "outline"}
-                          size="lg"
-                          disabled={isEnding}
-                          className={isMuted ? "" : "bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm"}
-                        >
-                          {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                        </Button>
-                        <Button
-                          onClick={endInterview}
-                          variant="destructive"
-                          size="lg"
-                          disabled={isEnding}
-                          className="bg-red-500/80 hover:bg-red-500/90"
-                        >
-                          {isEnding ? (
-                            <>
-                              <X className="h-4 w-4 mr-2 animate-spin" />
-                              Ending...
-                            </>
-                          ) : (
-                            <>
-                              <PhoneOff className="h-4 w-4 mr-2" />
-                              End Interview
-                            </>
-                          )}
-                        </Button>
-                      </>
-                    ) : null}
+                    <Button 
+                      onClick={toggleMute}
+                      variant="outline"
+                      className={`${isMuted ? 'bg-red-500/20 text-red-300 border-red-400' : 'bg-white/10 text-white border-white/20'} backdrop-blur-sm`}
+                    >
+                      {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    </Button>
+                    <Button 
+                      onClick={stopInterview}
+                      disabled={isEnding}
+                      className="bg-red-500/80 hover:bg-red-500 text-white"
+                    >
+                      <PhoneOff className="h-4 w-4 mr-2" />
+                      End Interview
+                    </Button>
                   </div>
-
-                  {/* Alternative option */}
-                  {!isCallActive && (
-                    <div className="text-center p-4 bg-white/5 rounded-lg border border-white/10 backdrop-blur-sm">
-                      <p className="text-sm text-white/70 mb-2">
-                        {hasError ? "Voice system unavailable?" : "Prefer typing?"}
-                      </p>
-                      <Button 
-                        onClick={onBack}
-                        variant="outline" 
-                        size="sm"
-                        className="text-white border-white/30 bg-white/10 hover:bg-white/20 backdrop-blur-sm"
-                      >
-                        Try Text Interview Instead
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Live Conversation */}
-              <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 card-entrance">
-                <CardHeader>
-                  <CardTitle className="text-white">Live Conversation</CardTitle>
-                  <CardDescription className="text-white/80">Real-time transcript of your interview</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64 overflow-y-auto bg-white/5 rounded-lg p-4 space-y-2 border border-white/10">
-                    {conversationMessages.length === 0 ? (
-                      <div className="text-center text-white/60 py-8">
-                        <Mic className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>Conversation will appear here once started</p>
-                      </div>
-                    ) : (
-                      conversationMessages.map((message, index) => (
-                        <div key={index} className="bg-white/10 p-2 rounded border border-white/10 text-sm text-white backdrop-blur-sm fade-in">
-                          {message}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Instructions */}
-            <Card className="mt-8 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 backdrop-blur-md border border-cyan-500/30 hover:from-cyan-500/25 hover:to-blue-500/25 transition-all duration-300 scale-in">
-              <CardContent className="p-6">
-                <h3 className="font-semibold mb-3 text-white">Interview Tips</h3>
-                <div className="grid md:grid-cols-2 gap-4 text-sm text-white/80">
-                  <div className="fade-in">
-                    <p className="font-medium mb-1 text-cyan-300">🎤 Audio Quality</p>
-                    <p>Ensure you're in a quiet environment with a good microphone</p>
-                  </div>
-                  <div className="fade-in">
-                    <p className="font-medium mb-1 text-blue-300">💬 Speaking</p>
-                    <p>Speak clearly and at a normal pace, just like a real interview</p>
-                  </div>
-                  <div className="fade-in">
-                    <p className="font-medium mb-1 text-purple-300">⏱️ Timing</p>
-                    <p>Your interview is set for {interviewConfig.duration} - pace yourself accordingly</p>
-                  </div>
-                  <div className="fade-in">
-                    <p className="font-medium mb-1 text-green-300">🛑 Stop Anytime</p>
-                    <p>Say "stop interview" or click the End Interview button to conclude early</p>
-                  </div>
+                  
+                  <p className="text-xs text-white/40">
+                    Say "stop interview" anytime to end the conversation
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
