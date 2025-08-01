@@ -53,6 +53,13 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
         console.log("Initializing AI Voice Interview...");
         setConnectionStatus('connecting');
         
+        // Get VAPI API key from Supabase secrets
+        const { data, error } = await supabase.functions.invoke('get-vapi-key');
+        
+        if (error || !data?.apiKey) {
+          throw new Error('Failed to get VAPI API key');
+        }
+        
         // Request microphone permission first
         try {
           await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -69,7 +76,7 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           return;
         }
 
-        const vapiInstance = new Vapi("79ce4a35-5241-495a-8fb8-40c6b5e02cf3");
+        const vapiInstance = new Vapi(data.apiKey);
         setVapi(vapiInstance);
         setIsInitialized(true);
         setConnectionStatus('connected');
@@ -213,8 +220,8 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
         setHasError(true);
         setConnectionStatus('disconnected');
         toast({
-          title: "AI Voice System Unavailable",
-          description: "AI voice interviews are currently unavailable. Please use the chat interview option.",
+          title: "AI Voice System Unavailable", 
+          description: "Please configure your VAPI API key in project settings.",
           variant: "destructive",
         });
       }

@@ -63,7 +63,14 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
 
   const initializeAI = async () => {
     try {
-      geminiRef.current = new GoogleGenerativeAI('AIzaSyDZHg1gfTJZNOsWrKGHpKDCPr0tq4wZY6s');
+      // Get Gemini API key from Supabase secrets
+      const { data, error } = await supabase.functions.invoke('get-gemini-key');
+      
+      if (error || !data?.apiKey) {
+        throw new Error('Failed to get Gemini API key');
+      }
+      
+      geminiRef.current = new GoogleGenerativeAI(data.apiKey);
       setIsConnected(true);
       
       // Initialize conversation history
@@ -89,9 +96,10 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
       console.error('Error initializing AI:', error);
       toast({
         title: "AI Connection Failed",
-        description: "Falling back to basic interview mode.",
+        description: "Please ensure Gemini API key is configured in project settings.",
         variant: "destructive"
       });
+      setIsConnected(false);
     }
   };
 
