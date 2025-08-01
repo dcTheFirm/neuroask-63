@@ -69,7 +69,7 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           return;
         }
 
-        const vapiInstance = new Vapi("8a96f7dc-932d-4ed3-b067-d125fcc61afb");
+        const vapiInstance = new Vapi("79ce4a35-5241-495a-8fb8-40c6b5e02cf3");
         setVapi(vapiInstance);
         setIsInitialized(true);
         setConnectionStatus('connected');
