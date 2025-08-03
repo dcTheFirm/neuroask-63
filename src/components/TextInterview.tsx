@@ -63,14 +63,10 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
 
   const initializeAI = async () => {
     try {
-      // Get Gemini API key from Supabase secrets
-      const { data, error } = await supabase.functions.invoke('get-gemini-key');
+      // Use API key from utils/geminiAnalytics.ts
+      const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyBwOdkC1Ko_01gCvYzyDXieKrdGHbG7VWA";
       
-      if (error || !data?.apiKey) {
-        throw new Error('Failed to get Gemini API key');
-      }
-      
-      geminiRef.current = new GoogleGenerativeAI(data.apiKey);
+      geminiRef.current = new GoogleGenerativeAI(GEMINI_API_KEY);
       setIsConnected(true);
       
       // Initialize conversation history

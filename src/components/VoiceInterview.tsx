@@ -53,12 +53,8 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
         console.log("Initializing AI Voice Interview...");
         setConnectionStatus('connecting');
         
-        // Get VAPI API key from Supabase secrets
-        const { data, error } = await supabase.functions.invoke('get-vapi-key');
-        
-        if (error || !data?.apiKey) {
-          throw new Error('Failed to get VAPI API key');
-        }
+        // Use API key from code
+        const VAPI_API_KEY = "8a96f7dc-932d-4ed3-b067-d125fcc61afb";
         
         // Request microphone permission first
         try {
@@ -76,7 +72,7 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           return;
         }
 
-        const vapiInstance = new Vapi(data.apiKey);
+        const vapiInstance = new Vapi(VAPI_API_KEY);
         setVapi(vapiInstance);
         setIsInitialized(true);
         setConnectionStatus('connected');
