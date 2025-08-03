@@ -304,7 +304,7 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
       },
       voice: {
         provider: "11labs" as const,
-        voiceId: "pNInz6obpgDQGcFmaJgB"
+        voiceId: "nPczCjzI2devNBz1zQrb" // Brian - Clear English accent
       },
       firstMessage: `Hello! I'm your AI interviewer for this ${config.type} interview in ${config.industry}. Let's start - could you tell me about yourself and your interest in this ${config.level} position?`,
       transcriber: {
