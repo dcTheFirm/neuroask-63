@@ -103,24 +103,22 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
     try {
       if (!geminiRef.current) throw new Error('AI not initialized');
       
-      const model = geminiRef.current.getGenerativeModel({ model: 'gemini-pro' });
-      const prompt = `You are an experienced ${config.industry} interviewer starting a ${config.type} interview for a ${config.level} position. 
+      const model = geminiRef.current.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const prompt = `You are an AI interviewer conducting a ${config.type} interview for a ${config.level} position in ${config.industry}. 
 
-Create a warm, professional welcome message that:
-- Introduces yourself as an AI interviewer
-- Sets expectations for the ${config.duration} interview
-- Makes the candidate feel comfortable
-- Explains the interactive nature of the interview
-- Asks an engaging opening question based on their background
+Start a natural conversation by:
+- Introducing yourself as an AI interviewer
+- Being warm and professional
+- Asking an engaging opening question to get started
 
-Keep it conversational and under 100 words. End with your first question.`;
+Be conversational and natural. Ask only ONE question to begin the interview.`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text().trim();
     } catch (error) {
       console.error('Error generating welcome:', error);
-      return `Hello! I'm your AI interviewer for today's ${config.type} interview in ${config.industry}. This will be an interactive conversation lasting about ${config.duration}. I'll ask thoughtful questions based on your responses, so please share specific examples and experiences. Ready to begin? Tell me about yourself and what brings you to this ${config.level} role in ${config.industry}.`;
+      return `Hello! I'm your AI interviewer for today's ${config.type} interview in ${config.industry}. Let's have a natural conversation about your experience. To start, could you tell me about yourself and what interests you about this ${config.level} position?`;
     }
   };
 
@@ -153,80 +151,30 @@ Keep it conversational and under 100 words. End with your first question.`;
     try {
       if (!geminiRef.current) throw new Error('AI not initialized');
       
-      const model = geminiRef.current.getGenerativeModel({ model: 'gemini-pro' });
+      const model = geminiRef.current.getGenerativeModel({ model: 'gemini-1.5-flash' });
       
       // Build comprehensive conversation context
       const fullContext = conversationHistory.join('\n');
       const currentQuestionNum = questionCount + 1;
       
-      const prompt = `You are an advanced AI interviewer conducting a ${config.type} interview for a ${config.level} position in ${config.industry}. 
+      const prompt = `You are an AI interviewer conducting a ${config.type} interview for a ${config.level} position in ${config.industry}.
 
-INTERVIEW CONTEXT:
-- Question #${currentQuestionNum}
-- Experience Level: ${config.level}
-- Industry: ${config.industry}
-- Interview Type: ${config.type}
-- Duration: ${config.duration}
-
-FULL CONVERSATION HISTORY:
+CONVERSATION SO FAR:
 ${fullContext}
 
-CANDIDATE'S LATEST RESPONSE: "${userResponse}"
+CANDIDATE'S RESPONSE: "${userResponse}"
 
-CRITICAL INSTRUCTIONS:
-1. NEVER repeat previous questions - analyze the conversation history to ensure uniqueness
-2. Build intelligently on their specific response with contextual follow-ups
-3. Use advanced reasoning to identify gaps or opportunities for deeper exploration
-4. Generate unique, thoughtful questions that demonstrate AI intelligence
-5. Reference specific details from their answers to show active listening
+As a professional interviewer, respond naturally by:
+- Acknowledging their response 
+- Asking ONE follow-up question based on what they just said
+- Being conversational and engaging
+- Keeping your response under 50 words
 
-INTELLIGENT QUESTIONING STRATEGY:
-- If they mentioned specific technologies/methods, probe deeper into implementation details
-- If they described a situation, ask about decision-making process or alternative approaches
-- If they discussed outcomes, explore metrics, lessons learned, or improvements
-- If they seem surface-level, dig for concrete examples and specifics
-- If they show expertise, challenge with more complex scenarios
+${config.type === 'behavioral' ? 'Focus on behavioral examples and STAR method (Situation, Task, Action, Result).' : ''}
+${config.type === 'technical' ? 'Explore technical depth, problem-solving, and implementation details.' : ''}
+${config.type === 'leadership' ? 'Investigate leadership experience, team management, and decision-making.' : ''}
 
-${config.type === 'behavioral' ? `
-BEHAVIORAL INTELLIGENCE:
-- Probe for STAR method details if missing (Situation, Task, Action, Result)
-- Explore leadership moments, conflict resolution, team dynamics
-- Ask about failures, difficult decisions, and learning experiences
-- Investigate cultural fit and value alignment scenarios
-` : ''}
-
-${config.type === 'technical' ? `
-TECHNICAL INTELLIGENCE:
-- Assess depth of understanding vs surface knowledge
-- Explore architecture decisions, trade-offs, and best practices
-- Probe problem-solving methodology and debugging approaches  
-- Test scalability, performance, and optimization thinking
-` : ''}
-
-${config.type === 'leadership' ? `
-LEADERSHIP INTELLIGENCE:
-- Explore management philosophy and team building strategies
-- Investigate difficult people/performance management scenarios
-- Assess strategic thinking and vision communication
-- Probe delegation, motivation, and organizational change
-` : ''}
-
-CONVERSATION GUIDELINES:
-- Keep responses under 60 words
-- Ask only ONE specific question
-- Show genuine interest and engagement
-- Be encouraging while maintaining professional standards
-- Reference their previous answers to demonstrate listening
-
-INTERVIEW FLOW MANAGEMENT:
-${currentQuestionNum <= 3 ? '- Focus on foundational experience and background' : ''}
-${currentQuestionNum >= 4 && currentQuestionNum <= 7 ? '- Dive deep into specific experiences and competencies' : ''}
-${currentQuestionNum >= 8 && currentQuestionNum <= 10 ? '- Explore advanced scenarios and decision-making' : ''}
-${currentQuestionNum >= 11 ? '- Begin wrapping up with final insights or closing questions' : ''}
-
-${currentQuestionNum >= 12 ? 'IMPORTANT: Consider concluding the interview gracefully with a thank you message.' : ''}
-
-Generate only your intelligent response as the AI interviewer, nothing else.`;
+Ask a natural follow-up question based on their specific response.`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
@@ -249,7 +197,7 @@ Generate only your intelligent response as the AI interviewer, nothing else.`;
       return aiResponse;
     } catch (error) {
       console.error('Error generating AI response:', error);
-      return `Thank you for that insight. Can you walk me through a specific example where you had to ${config.type === 'technical' ? 'solve a complex technical problem' : config.type === 'leadership' ? 'lead a difficult initiative' : 'handle a challenging situation'} in your ${config.industry} experience?`;
+      return `That's interesting. Could you tell me more about a specific challenge you've faced in your ${config.industry} experience?`;
     }
   };
 

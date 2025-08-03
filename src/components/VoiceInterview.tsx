@@ -293,103 +293,42 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
 
     // Enhanced AI assistant configuration with intelligent conversation
     const assistantConfig = {
-      name: `AI ${config.type} Interview Assistant`,
+      name: "AI Interview Assistant",
       model: {
         provider: "openai" as const,
         model: "gpt-4" as const,
-        messages: [
-          {
-            role: "system" as const,
-            content: `You are an advanced AI interviewer conducting a ${config.type} interview for a ${config.level} position in ${config.industry}. This is a ${durationMinutes}-minute intelligent conversation.
-
-CORE AI INTERVIEW PRINCIPLES:
-- You are powered by advanced AI reasoning and should demonstrate intelligent, contextual questioning
-- NEVER use repetitive or scripted questions - each question should be unique and build on previous responses
-- Use AI-powered analysis to understand the candidate's responses and ask probing follow-ups
-- Adapt your questioning style in real-time based on their answers and experience level
-- Be conversational, encouraging, and professionally engaging
-
-INTELLIGENT QUESTIONING STRATEGY:
-- Analyze each response for depth, specificity, and competency indicators
-- Generate contextual follow-up questions that probe deeper into their experiences
-- Use reasoning to identify knowledge gaps and explore them appropriately
-- Ask for specific examples, metrics, outcomes, and learnings
-- Explore decision-making processes and problem-solving approaches
-- Build questions that connect different aspects of their experience
-
-INTERVIEW STRUCTURE:
-1. Warm welcome introducing yourself as an AI interviewer (30 seconds)
-2. Dynamic questioning based on their responses (${durationMinutes-2} minutes)
-3. Natural conclusion thanking them (1 minute)
-
-${config.type === 'behavioral' ? `
-BEHAVIORAL AI INTELLIGENCE:
-- Probe for STAR method details (Situation, Task, Action, Result)
-- Explore leadership moments, conflict resolution, and decision-making
-- Ask about challenges, failures, and learning experiences
-- Investigate teamwork, communication, and adaptability
-- Use AI reasoning to assess cultural fit indicators
-` : ''}
-
-${config.type === 'technical' ? `
-TECHNICAL AI INTELLIGENCE:
-- Assess technical depth and understanding of core concepts
-- Explore problem-solving methodology and approach
-- Investigate trade-offs, architecture decisions, and best practices
-- Probe implementation details and technical challenges
-- Use reasoning to evaluate technical competency level
-` : ''}
-
-${config.type === 'leadership' ? `
-LEADERSHIP AI INTELLIGENCE:
-- Explore management philosophy and team building strategies
-- Investigate conflict resolution and difficult decision scenarios
-- Assess strategic thinking and vision-setting abilities
-- Probe delegation, motivation, and performance management
-- Use AI analysis to evaluate leadership potential
-` : ''}
-
-CONVERSATION GUIDELINES:
-- Keep responses concise (under 50 words per question)
-- Ask only ONE question at a time
-- Show active listening by referencing their previous answers
-- Use encouraging phrases like "That's interesting..." or "Tell me more about..."
-- Maintain professional warmth throughout
-- End naturally when time is appropriate or candidate requests to stop
-
-TIME MANAGEMENT:
-- After ${Math.max(durationMinutes-2, 1)} minutes, begin wrapping up
-- If candidate says "stop interview" or similar, conclude gracefully immediately
-- End with: "Thank you for your time today. This concludes our AI-powered interview."
-
-Start with: "Hello! I'm your AI interviewer today, powered by advanced conversation technology. I'm excited to have an intelligent discussion about your experience in ${config.industry}. This will be a dynamic conversation where I'll ask thoughtful questions based on your responses. Let's begin - tell me about yourself and what draws you to this ${config.level} role."`
-          }
-        ]
+        messages: [{
+          role: "system" as const,
+          content: `You are an AI interviewer conducting a ${config.type} interview for a ${config.level} position in ${config.industry}. Keep responses under 50 words. Ask one question at a time based on their responses. Be conversational and professional.`
+        }]
       },
       voice: {
         provider: "11labs" as const,
-        voiceId: "pNInz6obpgDQGcFmaJgB" // Professional voice
+        voiceId: "pNInz6obpgDQGcFmaJgB"
       },
-      firstMessage: `Hello! I'm your AI interviewer today, powered by advanced conversation technology. I'm excited to have an intelligent discussion about your experience in ${config.industry}. Let's begin - tell me about yourself and what draws you to this ${config.level} role.`,
+      firstMessage: `Hello! I'm your AI interviewer for this ${config.type} interview in ${config.industry}. Let's start - could you tell me about yourself and your interest in this ${config.level} position?`,
       transcriber: {
         provider: "deepgram" as const,
         model: "nova-2" as const,
         language: "en-US" as const
       },
       silenceTimeoutSeconds: 30,
-      maxDurationSeconds: durationMinutes * 60,
-      backgroundSound: "office" as const
+      maxDurationSeconds: durationMinutes * 60
     };
 
     try {
-      console.log("Starting AI Interview with config:", assistantConfig);
+      console.log("Starting voice interview...");
       await vapi.start(assistantConfig);
       setConnectionStatus('connected');
-    } catch (error) {
-      console.error("Error starting AI interview:", error);
       toast({
-        title: "Failed to Start AI Interview",
-        description: "Please try again or use the chat interview option.",
+        title: "Voice Interview Started",
+        description: "You can now speak with the AI interviewer",
+      });
+    } catch (error) {
+      console.error("Error starting voice interview:", error);
+      toast({
+        title: "Failed to Start Voice Interview",
+        description: error.message || "Please try again.",
         variant: "destructive",
       });
     }
