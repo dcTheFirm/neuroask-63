@@ -26,7 +26,7 @@ interface DashboardProps {
 
 export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview, user, onProfile, interviewConfig }: DashboardProps) => {
   const [currentView, setCurrentView] = useState<'dashboard' | 'random-practice' | 'quick-session' | 'session-review'>('dashboard');
-  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dashboardAnalytics, setDashboardAnalytics] = useState<any>(null);
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,8 +167,8 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
     setCurrentView('quick-session');
   };
 
-  const handleSessionReview = (sessionId: number) => {
-    setSelectedSessionId(sessionId);
+  const handleSessionReview = (sessionId: string) => {
+    setSelectedSession(sessionId);
     setCurrentView('session-review');
   };
 
@@ -200,9 +200,8 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
     return <QuickSession onBack={() => setCurrentView('dashboard')} interviewConfig={interviewConfig} />;
   }
 
-  if (currentView === 'session-review' && selectedSessionId) {
-    const session = recentSessions.find(s => s.id === selectedSessionId);
-    return <SessionReview session={session} onBack={() => setCurrentView('dashboard')} />;
+  if (currentView === 'session-review') {
+    return <SessionReview onBack={() => setCurrentView('dashboard')} sessionId={selectedSession} />;
   }
 
   return (

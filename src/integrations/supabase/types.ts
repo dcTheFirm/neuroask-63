@@ -64,49 +64,70 @@ export type Database = {
       }
       practice_sessions: {
         Row: {
+          analysis_data: Json | null
           completed_at: string | null
           configuration_id: string | null
           created_at: string
+          detailed_feedback: string | null
           duration_seconds: number | null
           feedback_summary: string | null
           id: string
           overall_score: number | null
           questions_answered: number | null
+          questions_data: Json | null
+          recommendations: string[] | null
           session_type: string
+          skill_breakdown: Json | null
           started_at: string
           status: string | null
+          strengths: string[] | null
           total_questions: number | null
           user_id: string
+          weaknesses: string[] | null
         }
         Insert: {
+          analysis_data?: Json | null
           completed_at?: string | null
           configuration_id?: string | null
           created_at?: string
+          detailed_feedback?: string | null
           duration_seconds?: number | null
           feedback_summary?: string | null
           id?: string
           overall_score?: number | null
           questions_answered?: number | null
+          questions_data?: Json | null
+          recommendations?: string[] | null
           session_type: string
+          skill_breakdown?: Json | null
           started_at?: string
           status?: string | null
+          strengths?: string[] | null
           total_questions?: number | null
           user_id: string
+          weaknesses?: string[] | null
         }
         Update: {
+          analysis_data?: Json | null
           completed_at?: string | null
           configuration_id?: string | null
           created_at?: string
+          detailed_feedback?: string | null
           duration_seconds?: number | null
           feedback_summary?: string | null
           id?: string
           overall_score?: number | null
           questions_answered?: number | null
+          questions_data?: Json | null
+          recommendations?: string[] | null
           session_type?: string
+          skill_breakdown?: Json | null
           started_at?: string
           status?: string | null
+          strengths?: string[] | null
           total_questions?: number | null
           user_id?: string
+          weaknesses?: string[] | null
         }
         Relationships: [
           {
@@ -263,68 +284,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      voice_interviews: {
-        Row: {
-          ai_feedback: string | null
-          answered_at: string | null
-          audio_duration_seconds: number | null
-          clarity_score: number | null
-          confidence_score: number | null
-          created_at: string
-          id: string
-          question_number: number
-          question_text: string
-          score: number | null
-          session_id: string
-          speaking_pace_score: number | null
-          time_taken_seconds: number | null
-          user_answer_transcript: string | null
-          user_id: string
-        }
-        Insert: {
-          ai_feedback?: string | null
-          answered_at?: string | null
-          audio_duration_seconds?: number | null
-          clarity_score?: number | null
-          confidence_score?: number | null
-          created_at?: string
-          id?: string
-          question_number: number
-          question_text: string
-          score?: number | null
-          session_id: string
-          speaking_pace_score?: number | null
-          time_taken_seconds?: number | null
-          user_answer_transcript?: string | null
-          user_id: string
-        }
-        Update: {
-          ai_feedback?: string | null
-          answered_at?: string | null
-          audio_duration_seconds?: number | null
-          clarity_score?: number | null
-          confidence_score?: number | null
-          created_at?: string
-          id?: string
-          question_number?: number
-          question_text?: string
-          score?: number | null
-          session_id?: string
-          speaking_pace_score?: number | null
-          time_taken_seconds?: number | null
-          user_answer_transcript?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "voice_interviews_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "practice_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {

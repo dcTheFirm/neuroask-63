@@ -284,29 +284,112 @@ Ask a natural follow-up question based on their specific response.`;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleEndInterview = async () => {
+  const endSession = async () => {
+    if (!sessionId) return;
+    
     try {
-      if (sessionId) {
-        await supabase
-          .from('practice_sessions')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            duration_seconds: timeElapsed,
-            questions_answered: questionCount
-          })
-          .eq('id', sessionId);
+      // Generate comprehensive analysis using Gemini
+      const analysisPrompt = `
+        Analyze this interview session and provide detailed feedback in JSON format:
+        
+        Interview Context:
+        - Type: ${config.type}
+        - Industry: ${config.industry}
+        - Level: ${config.level}
+        
+        Conversation History:
+        ${conversationHistory.join('\n')}
+        
+        Please provide analysis in this exact JSON format:
+        {
+          "overall_score": number (0-100),
+          "strengths": ["strength1", "strength2", ...],
+          "weaknesses": ["weakness1", "weakness2", ...], 
+          "recommendations": ["recommendation1", "recommendation2", ...],
+          "skill_breakdown": {
+            "communication": number (0-100),
+            "technical_knowledge": number (0-100),
+            "problem_solving": number (0-100),
+            "cultural_fit": number (0-100)
+          },
+          "detailed_feedback": "comprehensive feedback text",
+          "question_scores": [{"question": "text", "answer": "text", "score": number, "feedback": "text"}]
+        }
+      `;
+
+      const model = geminiRef.current?.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      let analysisData;
+      
+      if (model) {
+        try {
+          const result = await model.generateContent(analysisPrompt);
+          const response = await result.response;
+          const cleanResponse = response.text().replace(/```json\n?|\n?```/g, '').trim();
+          analysisData = JSON.parse(cleanResponse);
+        } catch (parseError) {
+          console.error('Failed to parse analysis:', parseError);
+          analysisData = null;
+        }
       }
 
+      // Fallback analysis if Gemini fails
+      if (!analysisData) {
+        analysisData = {
+          overall_score: 75,
+          strengths: ["Engaged in conversation", "Provided relevant responses"],
+          weaknesses: ["Could elaborate more on technical details"],
+          recommendations: ["Practice more technical scenarios", "Prepare specific examples"],
+          skill_breakdown: { communication: 80, technical_knowledge: 70, problem_solving: 75, cultural_fit: 80 },
+          detailed_feedback: "Good overall performance with room for improvement in technical depth.",
+          question_scores: []
+        };
+      }
+
+      const { error } = await supabase
+        .from('practice_sessions')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          questions_answered: questionCount,
+          duration_seconds: timeElapsed,
+          overall_score: analysisData.overall_score,
+          analysis_data: analysisData,
+          strengths: analysisData.strengths,
+          weaknesses: analysisData.weaknesses,
+          recommendations: analysisData.recommendations,
+          skill_breakdown: analysisData.skill_breakdown,
+          detailed_feedback: analysisData.detailed_feedback,
+          questions_data: JSON.parse(JSON.stringify(messages.map(m => ({
+            id: m.id,
+            text: m.text,
+            sender: m.sender,
+            timestamp: m.timestamp.toISOString()
+          })))),
+          feedback_summary: `Score: ${analysisData.overall_score}/100. Key strengths: ${analysisData.strengths.slice(0,2).join(', ')}. Areas for improvement: ${analysisData.weaknesses.slice(0,2).join(', ')}.`
+        })
+        .eq('id', sessionId);
+
+      if (error) throw error;
+      
+      console.log('Session ended successfully with analysis');
       toast({
         title: "Interview Completed!",
-        description: "Great job! Your AI interview session has been saved.",
+        description: "Great job! Your AI interview session has been saved and analyzed.",
       });
       onComplete();
     } catch (error) {
-      console.error('Error ending interview:', error);
+      console.error('Error ending session:', error);
+      toast({
+        title: "Error", 
+        description: "Failed to save session data",
+        variant: "destructive",
+      });
       onComplete();
     }
+  };
+
+  const handleEndInterview = () => {
+    endSession();
   };
 
   return (

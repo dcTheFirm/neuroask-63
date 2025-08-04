@@ -1,206 +1,318 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Star, TrendingUp, Clock, Target, CheckCircle, AlertTriangle } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, Clock, Target, Award, MessageCircle, Mic } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface SessionReviewProps {
   onBack: () => void;
   session?: any;
   sessionData?: any;
+  sessionId?: string | null;
 }
 
-export const SessionReview = ({ onBack, session, sessionData }: SessionReviewProps) => {
-  const mockSessionData = {
-    date: new Date().toLocaleDateString(),
-    duration: "25 minutes",
-    industry: "Software Engineering",
-    level: "Mid Level",
-    type: "Technical",
-    score: 85,
-    questionsAnswered: 8,
-    strengths: [
-      "Clear communication",
-      "Strong technical knowledge",
-      "Good problem-solving approach"
-    ],
-    improvements: [
-      "Practice system design questions",
-      "Improve time complexity explanations",
-      "Prepare more behavioral examples"
-    ]
+export const SessionReview = ({ onBack, session, sessionData, sessionId }: SessionReviewProps) => {
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [actualSessionData, setActualSessionData] = useState<any>(null);
+
+  useEffect(() => {
+    if (sessionId && !session && !sessionData) {
+      fetchSessionData();
+    }
+  }, [sessionId]);
+
+  const fetchSessionData = async () => {
+    if (!sessionId) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('practice_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+
+      if (error) throw error;
+      setActualSessionData(data);
+    } catch (error) {
+      console.error('Error fetching session data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load session data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const data = session || sessionData || mockSessionData;
+  // Use actual session data if available, otherwise fallback to props or mock data
+  const mockSessionData = {
+    id: '1',
+    session_type: 'text',
+    duration_seconds: 2700,
+    overall_score: 85,
+    completed_at: new Date().toISOString(),
+    strengths: ['Excellent problem-solving approach', 'Clear communication'],
+    weaknesses: ['Could elaborate more on testing strategies'],
+    recommendations: ['Review advanced algorithms', 'Practice system design'],
+    skill_breakdown: {
+      communication: 88,
+      technical_knowledge: 85,
+      problem_solving: 82,
+      cultural_fit: 87
+    },
+    questions_answered: 8,
+    total_questions: 10,
+    detailed_feedback: 'Overall strong performance with good technical knowledge and communication skills.',
+    analysis_data: null
+  };
+
+  const data = actualSessionData || session || sessionData || mockSessionData;
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading session review...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black relative overflow-hidden page-enter">
-      {/* Animated Background Elements */}
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4">
+      {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-1/2 -right-1/2 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
-        <div className="absolute -bottom-1/2 -left-1/2 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-cyan-500/5 rounded-full blur-2xl animate-float"></div>
-        <div className="absolute top-3/4 right-1/4 w-48 h-48 bg-indigo-500/5 rounded-full blur-2xl animate-pulse-slow"></div>
+        <div className="absolute -top-1/2 -right-1/2 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-1/2 -left-1/2 w-96 h-96 bg-secondary/5 rounded-full blur-3xl animate-pulse"></div>
       </div>
 
-      <div className="relative z-10">
-        <div className="container mx-auto px-6 py-8 max-w-6xl">
-          {/* Header */}
-          <div className="flex items-center mb-8 fade-in">
-            <Button 
-              variant="ghost" 
-              onClick={onBack} 
-              className="mr-4 text-white/90 hover:text-white hover:bg-white/10 backdrop-blur-sm border border-white/10"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
+      <div className="container mx-auto max-w-4xl relative z-10">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              {data.session_type === 'voice' ? (
+                <Mic className="w-4 h-4 text-primary" />
+              ) : (
+                <MessageCircle className="w-4 h-4 text-primary" />
+              )}
+            </div>
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2 text-reveal">Session Review</h1>
-              <p className="text-white/80 text-reveal">Review your interview performance and progress</p>
+              <h1 className="text-2xl font-bold">
+                {data.session_type === 'voice' ? 'Voice' : 'Text'} Interview Review
+              </h1>
+              <p className="text-muted-foreground">
+                Session completed on {new Date(data.completed_at || data.created_at).toLocaleDateString()}
+              </p>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {data.duration_seconds ? `${Math.floor(data.duration_seconds / 60)} minutes` : 'Duration not recorded'}
+            </span>
+          </div>
+        </div>
 
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Session Overview */}
-              <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up">
+        {/* Overview Cards */}
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <Card className="text-center">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-primary mb-2">
+                  {data.overall_score || 0}%
+                </div>
+                <p className="text-sm text-muted-foreground">Overall Score</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold mb-2">
+                  {data.questions_answered || 0}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {data.session_type === 'voice' ? 'Responses Given' : 'Questions Answered'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-center">
+                <Award className="w-6 h-6 text-yellow-500 mr-2" />
+                <span className="text-lg font-semibold">
+                  {data.overall_score >= 90 ? 'Excellent' : 
+                   data.overall_score >= 80 ? 'Great' : 
+                   data.overall_score >= 70 ? 'Good' : 
+                   data.overall_score >= 60 ? 'Fair' : 'Needs Improvement'}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Strengths */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center text-green-600">
+              <CheckCircle className="w-5 h-5 mr-2" />
+              Strengths
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {(data.strengths || []).map((strength: string, index: number) => (
+                <div key={index} className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">{strength}</span>
+                </div>
+              ))}
+              {(!data.strengths || data.strengths.length === 0) && (
+                <p className="text-sm text-muted-foreground">No specific strengths recorded for this session.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Areas for Improvement */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center text-orange-600">
+              <XCircle className="w-5 h-5 mr-2" />
+              Areas for Improvement
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {(data.weaknesses || data.improvements || []).map((improvement: string, index: number) => (
+                <div key={index} className="flex items-start gap-3">
+                  <XCircle className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">{improvement}</span>
+                </div>
+              ))}
+              {(!data.weaknesses && !data.improvements) && (
+                <p className="text-sm text-muted-foreground">No specific areas for improvement identified.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Skill Breakdown */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Performance Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              {data.skill_breakdown ? (
+                Object.entries(data.skill_breakdown).map(([skill, score]) => (
+                  <div key={skill} className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium capitalize">{skill.replace('_', ' ')}</span>
+                      <span className="text-muted-foreground">{score as number}%</span>
+                    </div>
+                    <Progress value={score as number} className="h-2" />
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Skill breakdown not available for this session.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recommendations */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center text-blue-600">
+              <TrendingUp className="w-5 h-5 mr-2" />
+              Recommendations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {(data.recommendations || []).map((recommendation: string, index: number) => (
+                <div key={index} className="flex items-start gap-3">
+                  <TrendingUp className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">{recommendation}</span>
+                </div>
+              ))}
+              {(!data.recommendations || data.recommendations.length === 0) && (
+                <p className="text-sm text-muted-foreground">No specific recommendations available.</p>
+              )}
+            </div>
+
+            {/* Detailed Feedback Section */}
+            {data.detailed_feedback && (
+              <Card className="mt-6">
                 <CardHeader>
-                  <CardTitle className="flex items-center text-white">
-                    <Star className="h-5 w-5 mr-2 text-yellow-400" />
-                    Session Overview
+                  <CardTitle className="text-lg">Detailed Feedback</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {data.detailed_feedback}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Session Transcript/Questions */}
+            {data.questions_data && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="text-lg">
+                    {data.session_type === 'voice' ? 'Session Transcript' : 'Interview Questions & Answers'}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-2 gap-6">
+                  {data.session_type === 'voice' ? (
+                    <div className="text-sm text-muted-foreground">
+                      {data.questions_data.transcript || 
+                       (data.questions_data.messages && data.questions_data.messages.length > 0 
+                        ? data.questions_data.messages.join('\n') 
+                        : 'Voice transcript not available')}
+                    </div>
+                  ) : (
                     <div className="space-y-4">
-                      <div className="flex justify-between">
-                        <span className="text-white/80">Date:</span>
-                        <span className="text-white font-medium">{data.date}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-white/80">Duration:</span>
-                        <span className="text-white font-medium">{data.duration}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-white/80">Industry:</span>
-                        <span className="text-white font-medium">{data.industry}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-white/80">Level:</span>
-                        <span className="text-white font-medium">{data.level || data.type}</span>
-                      </div>
+                      {Array.isArray(data.questions_data) ? (
+                        data.questions_data
+                          .filter((msg: any) => msg.sender === 'ai' || msg.sender === 'user' || msg.role === 'assistant' || msg.role === 'user')
+                          .map((msg: any, index: number) => (
+                            <div key={index} className="p-3 rounded-lg bg-muted/50">
+                              <div className="font-medium text-sm mb-1">
+                                {(msg.sender === 'ai' || msg.role === 'assistant') ? 'Interviewer' : 'You'}:
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {msg.text || msg.content}
+                              </div>
+                            </div>
+                          ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Interview data not available</p>
+                      )}
                     </div>
-                    <div className="text-center">
-                      <div className="text-4xl font-bold text-white mb-2">{data.score}</div>
-                      <div className="text-cyan-200 mb-4">Overall Score</div>
-                      <Progress value={data.score} className="bg-white/20" />
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
+            )}
+          </CardContent>
+        </Card>
 
-              {/* Performance Breakdown */}
-              <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-white">
-                    <TrendingUp className="h-5 w-5 mr-2 text-green-400" />
-                    Performance Breakdown
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-semibold text-white mb-3 flex items-center">
-                        <CheckCircle className="h-4 w-4 mr-2 text-green-400" />
-                        Strengths
-                      </h4>
-                      <div className="space-y-2">
-                        {(data.strengths || []).map((strength: string, index: number) => (
-                          <div key={index} className="flex items-center space-x-2 fade-in">
-                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                            <span className="text-white/90 text-sm">{strength}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-white mb-3 flex items-center">
-                        <Target className="h-4 w-4 mr-2 text-orange-400" />
-                        Areas for Improvement
-                      </h4>
-                      <div className="space-y-2">
-                        {(data.improvements || []).map((improvement: string, index: number) => (
-                          <div key={index} className="flex items-center space-x-2 fade-in">
-                            <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                            <span className="text-white/90 text-sm">{improvement}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Quick Stats */}
-              <Card className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-md border border-blue-500/30 hover:from-blue-500/25 hover:to-cyan-500/25 transition-all duration-300 card-entrance">
-                <CardHeader>
-                  <CardTitle className="text-black">Session Stats</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-black/80">Questions Answered:</span>
-                    <span className="font-medium text-black">{data.questionsAnswered || data.questions?.length || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-black/80">Average Response:</span>
-                    <span className="font-medium text-black">2.5 min</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-black/80">Confidence Level:</span>
-                    <span className="font-medium text-black">High</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Next Steps */}
-              <Card className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-md border border-green-500/30 hover:from-green-500/25 hover:to-emerald-500/25 transition-all duration-300 scale-in">
-                <CardHeader>
-                  <CardTitle className="text-black">Recommended Next Steps</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start bg-white/10 hover:bg-white/20 text-black border-white/20 backdrop-blur-sm"
-                  >
-                    <Clock className="h-4 w-4 mr-2" />
-                    Practice System Design
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start bg-white/10 hover:bg-white/20 text-black border-white/20 backdrop-blur-sm"
-                  >
-                    <Target className="h-4 w-4 mr-2" />
-                    Behavioral Questions
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start bg-white/10 hover:bg-white/20 text-black border-white/20 backdrop-blur-sm"
-                  >
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Mock Interview
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+        {/* Back Button */}
+        <div className="flex justify-center">
+          <Button onClick={onBack} className="w-full max-w-md">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
         </div>
       </div>
     </div>
