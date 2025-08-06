@@ -98,49 +98,8 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           setAiSpeaking(false);
           setUserSpeaking(false);
           
-          // Update session completion with analysis
-          if (sessionId) {
-            try {
-              const conversationSummary = conversationMessages.join('\n') || "Voice interview completed";
-              
-              // Create analysis data for voice interview
-              const analysisData = {
-                overall_score: 80, // This would be calculated based on voice analysis
-                strengths: ["Clear communication", "Professional tone", "Engaged throughout"],
-                weaknesses: ["Could speak more confidently", "Add more specific examples"],
-                recommendations: ["Practice speaking louder", "Prepare concrete examples", "Work on reducing filler words"],
-                skill_breakdown: { 
-                  communication: 85, 
-                  technical_knowledge: 75, 
-                  problem_solving: 80, 
-                  cultural_fit: 85 
-                },
-                detailed_feedback: `Voice interview completed successfully. ${conversationSummary.length > 100 ? 'Good engagement and communication flow.' : 'Session completed with basic interaction.'}`,
-                question_scores: []
-              };
-
-              await supabase
-                .from('practice_sessions')
-                .update({
-                  status: 'completed',
-                  completed_at: new Date().toISOString(),
-                  duration_seconds: callDuration,
-                  questions_answered: questionCounter.current,
-                  overall_score: analysisData.overall_score,
-                  analysis_data: analysisData,
-                  strengths: analysisData.strengths,
-                  weaknesses: analysisData.weaknesses,
-                  recommendations: analysisData.recommendations,
-                  skill_breakdown: analysisData.skill_breakdown,
-                  detailed_feedback: analysisData.detailed_feedback,
-                  questions_data: { transcript: conversationSummary, messages: conversationMessages },
-                  feedback_summary: `Voice Interview Score: ${analysisData.overall_score}/100. Strengths: ${analysisData.strengths.slice(0,2).join(', ')}. Areas for improvement: ${analysisData.weaknesses.slice(0,2).join(', ')}.`
-                })
-                .eq('id', sessionId);
-            } catch (error) {
-              console.error('Error updating session:', error);
-            }
-          }
+          // Just end the interview without saving to backend
+          // (voice interview table was deleted from backend)
           
           if (!stopRequested.current) {
             toast({
@@ -169,10 +128,9 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
             const messageText = `${message.role === "user" ? "You" : "AI Interviewer"}: ${message.transcript}`;
             setConversationMessages(prev => [...prev, messageText]);
             
-            // Save voice interview data for user responses
-            if (sessionId && message.role === "user" && message.transcript.trim()) {
+            // Count user responses but don't save to backend
+            if (message.role === "user" && message.transcript.trim()) {
               questionCounter.current += 1;
-              saveVoiceInterviewData(message.transcript, questionCounter.current);
             }
           }
           
@@ -362,53 +320,11 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
   };
 
   const initializeSession = async () => {
-    try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) return;
-
-      const { data, error } = await supabase
-        .from('practice_sessions')
-        .insert({
-          user_id: currentUser.id,
-          session_type: 'voice',
-          status: 'in_progress',
-          total_questions: 0, // Dynamic AI questions
-          questions_answered: 0,
-          started_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      setSessionId(data.id);
-    } catch (error) {
-      console.error('Error initializing session:', error);
-    }
+    // Don't create session in database for voice interviews
+    // (voice interview table was deleted from backend)
+    setSessionId(null);
   };
 
-  const saveVoiceInterviewData = async (transcript: string, questionNumber: number) => {
-    if (!sessionId) return;
-
-    try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) return;
-
-      // Note: voice_interviews table doesn't exist yet, so we'll save to text_interviews for now
-      await supabase
-        .from('text_interviews')
-        .insert({
-          user_id: currentUser.id,
-          session_id: sessionId,
-          question_number: questionNumber,
-          question_text: 'AI Generated Question',
-          user_answer: transcript,
-          answered_at: new Date().toISOString()
-        });
-
-    } catch (error) {
-      console.error('Error saving voice data:', error);
-    }
-  };
 
   const stopInterview = () => {
     if (vapi && isCallActive) {
