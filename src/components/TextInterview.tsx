@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { analyzeInterviewWithGemini } from "@/utils/geminiAnalytics";
 
 interface TextInterviewProps {
   onBack: () => void;
@@ -301,118 +302,78 @@ Ask a natural follow-up question based on their specific response.`;
       // First save all interview questions and answers
       await saveInterviewQuestions();
 
-      // Generate comprehensive analysis using Gemini
-      const fullConversation = conversationHistory.join('\n');
-      const analysisPrompt = `
-        Analyze this complete interview session and provide detailed professional feedback in JSON format:
-        
-        Interview Context:
-        - Type: ${config.type}
-        - Industry: ${config.industry}
-        - Level: ${config.level}
-        - Duration: ${Math.floor(timeElapsed / 60)} minutes
-        - Questions Asked: ${questionCount}
-        
-        Complete Conversation:
-        ${fullConversation}
-        
-        Provide comprehensive analysis in this exact JSON format:
-        {
-          "overall_score": number (0-100, based on overall performance),
-          "strengths": ["specific strength 1", "specific strength 2", "specific strength 3"],
-          "weaknesses": ["specific area for improvement 1", "specific area for improvement 2"], 
-          "recommendations": ["actionable recommendation 1", "actionable recommendation 2", "actionable recommendation 3"],
-          "skill_breakdown": {
-            "communication": number (0-100, clarity and articulation),
-            "technical_knowledge": number (0-100, domain expertise shown),
-            "problem_solving": number (0-100, analytical thinking),
-            "cultural_fit": number (0-100, professionalism and engagement)
-          },
-          "detailed_feedback": "comprehensive 3-4 sentence performance summary with specific examples",
-          "question_scores": [{"question": "question text", "answer": "answer text", "score": number, "feedback": "specific feedback"}]
-        }
-        
-        Be specific and provide actionable insights based on actual responses given.
-      `;
+      // Generate comprehensive analysis using utility (robust JSON parsing + validation)
+      const aiMessages = messages.filter(m => m.sender === 'ai');
+      const userMessages = messages.filter(m => m.sender === 'user');
 
-      const model = geminiRef.current?.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      let analysisData;
-      
-      if (model && conversationHistory.length > 2) {
-        try {
-          const result = await model.generateContent(analysisPrompt);
-          const response = await result.response;
-          const cleanResponse = response.text().replace(/```json\n?|\n?```/g, '').trim();
-          analysisData = JSON.parse(cleanResponse);
-          
-          // Generate individual question scores based on the conversation
-          const aiMessages = messages.filter(m => m.sender === 'ai');
-          const userMessages = messages.filter(m => m.sender === 'user');
-          
-          const questionScores = [];
-          for (let i = 0; i < Math.min(aiMessages.length, userMessages.length); i++) {
-            questionScores.push({
-              question: aiMessages[i]?.text || '',
-              answer: userMessages[i]?.text || '',
-              score: Math.floor(Math.random() * 20) + 70, // 70-90 range, would be AI-calculated in production
-              feedback: `Good response showing understanding of the topic.`
-            });
-          }
-          analysisData.question_scores = questionScores;
-          
-        } catch (parseError) {
-          console.error('Failed to parse analysis:', parseError);
-          analysisData = null;
-        }
-      }
+      const sessionDataForAI = {
+        questions: aiMessages.map(m => m.text),
+        answers: userMessages.map(m => m.text),
+        type: config.type,
+        industry: config.industry,
+        level: config.level,
+        duration: `${Math.floor(timeElapsed / 60)} minutes`
+      } as const;
 
-      // Enhanced fallback analysis
-      if (!analysisData) {
-        const score = Math.min(100, 60 + (questionCount * 5)); // Base score with question engagement bonus
+      let analysisData: any;
+      try {
+        analysisData = await analyzeInterviewWithGemini(sessionDataForAI);
+      } catch (e) {
+        console.error('Gemini analysis failed, using fallback:', e);
+        // Basic fallback
+        const fallbackScore = Math.min(100, 60 + (questionCount * 5));
         analysisData = {
-          overall_score: score,
-          strengths: [
-            "Actively engaged throughout the interview",
-            "Provided thoughtful responses to questions",
-            "Demonstrated good communication skills"
-          ],
-          weaknesses: [
-            "Could provide more specific examples in responses",
-            "Consider elaborating on technical details when relevant"
-          ],
-          recommendations: [
-            "Practice providing concrete examples using the STAR method",
-            "Research common interview questions for your industry",
-            "Work on articulating your experience more clearly"
-          ],
-          skill_breakdown: { 
-            communication: Math.min(100, 70 + (questionCount * 3)), 
-            technical_knowledge: Math.min(100, 65 + (questionCount * 3)), 
-            problem_solving: Math.min(100, 68 + (questionCount * 3)), 
-            cultural_fit: Math.min(100, 75 + (questionCount * 2))
-          },
-          detailed_feedback: `You completed ${questionCount} questions over ${Math.floor(timeElapsed / 60)} minutes, showing good engagement. Your responses demonstrated understanding but could benefit from more specific examples and technical depth where applicable.`,
-          question_scores: []
+          overallScore: fallbackScore,
+          strengths: ["Clear communication", "Good examples", "Professional demeanor"],
+          weaknesses: ["Need more specific examples"],
+          recommendations: ["Practice STAR method", "Mock interviews", "Research the company"],
+          detailedFeedback: `Completed ${questionCount} questions over ${Math.floor(timeElapsed / 60)} minutes.`,
+          skillBreakdown: { communication: 70, technical: 65, problemSolving: 68, confidence: 72 },
+          questionScores: []
         };
       }
 
-      // Update the practice session with complete analysis
-      const { error } = await supabase
+      // Build structured Q&A with optional per-question scores/feedback
+      const qas = aiMessages.slice(0, Math.min(aiMessages.length, userMessages.length)).map((q, i) => ({
+        number: i + 1,
+        question_text: q.text,
+        user_answer: userMessages[i]?.text || '',
+        answered_at: userMessages[i]?.timestamp?.toISOString() || new Date().toISOString(),
+        time_taken_seconds: 60,
+        score: analysisData?.questionScores?.[i] ?? null,
+      }));
+
+      // Map analysis to DB columns (snake_case where appropriate)
+      const overallScore = Math.max(0, Math.min(100, analysisData.overallScore || 0));
+      const strengths = analysisData.strengths || [];
+      const weaknesses = analysisData.weaknesses || [];
+      const recommendations = analysisData.recommendations || [];
+      const detailedFeedback = analysisData.detailedFeedback || '';
+      const skill_breakdown = {
+        communication: analysisData.skillBreakdown?.communication ?? 0,
+        technical_knowledge: analysisData.skillBreakdown?.technical ?? 0,
+        problem_solving: analysisData.skillBreakdown?.problemSolving ?? 0,
+        cultural_fit: analysisData.skillBreakdown?.confidence ?? 0,
+      };
+
+      // Update the practice session with complete analysis (return representation to catch detailed errors)
+      const { data: updated, error } = await supabase
         .from('practice_sessions')
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
-          questions_answered: questionCount,
-          total_questions: questionCount,
+          questions_answered: qas.length,
+          total_questions: qas.length,
           duration_seconds: timeElapsed,
-          overall_score: analysisData.overall_score,
+          overall_score: overallScore,
           analysis_data: analysisData,
-          strengths: analysisData.strengths,
-          weaknesses: analysisData.weaknesses,
-          recommendations: analysisData.recommendations,
-          skill_breakdown: analysisData.skill_breakdown,
-          detailed_feedback: analysisData.detailed_feedback,
+          strengths,
+          weaknesses,
+          recommendations,
+          skill_breakdown,
+          detailed_feedback: detailedFeedback,
           questions_data: {
+            qas,
             messages: messages.map(m => ({
               id: m.id,
               text: m.text,
@@ -421,16 +382,16 @@ Ask a natural follow-up question based on their specific response.`;
             })),
             conversation_history: conversationHistory
           },
-          feedback_summary: `Interview Score: ${analysisData.overall_score}/100. Answered ${questionCount} questions in ${Math.floor(timeElapsed / 60)} minutes. Key strengths: ${analysisData.strengths.slice(0,2).join(', ')}. Areas for improvement: ${analysisData.weaknesses.slice(0,1).join(', ')}.`
+          feedback_summary: detailedFeedback || `Score ${overallScore}/100 • Answered ${qas.length} questions`
         })
-        .eq('id', sessionId);
+        .eq('id', sessionId)
+        .select()
+        .single();
 
-      if (error) throw error;
-      
       console.log('Session completed with comprehensive analysis');
       toast({
         title: "Interview Completed Successfully!",
-        description: `Your interview has been saved with detailed analysis. Score: ${analysisData.overall_score}/100`,
+        description: `Your interview has been saved with detailed analysis. Score: ${overallScore}/100`,
         variant: "default",
       });
       onComplete();

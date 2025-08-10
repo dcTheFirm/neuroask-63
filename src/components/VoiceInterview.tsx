@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import Vapi from "@vapi-ai/web";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { analyzeInterviewWithGemini } from "@/utils/geminiAnalytics";
 
 interface VoiceInterviewProps {
   onBack: () => void;
@@ -97,17 +98,22 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           setConnectionStatus('disconnected');
           setAiSpeaking(false);
           setUserSpeaking(false);
-          
-          // Just end the interview without saving to backend
-          // (voice interview table was deleted from backend)
-          
-          if (!stopRequested.current) {
+
+          try {
+            await finalizeAndSaveSession();
             toast({
               title: "AI Interview Completed",
-              description: "Your intelligent voice interview has been saved and analyzed.",
+              description: "Your voice interview has been saved and analyzed.",
+            });
+          } catch (err: any) {
+            console.error('Failed to save voice session:', err);
+            toast({
+              title: "Save Failed",
+              description: "Could not save/analyze the session. Please try again.",
+              variant: "destructive",
             });
           }
-          setTimeout(() => onComplete(), 1000);
+          setTimeout(() => onComplete(), 800);
         });
 
         vapiInstance.on("speech-start", () => {
@@ -320,12 +326,99 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
   };
 
   const initializeSession = async () => {
-    // Don't create session in database for voice interviews
-    // (voice interview table was deleted from backend)
-    setSessionId(null);
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return;
+      const { data, error } = await supabase
+        .from('practice_sessions')
+        .insert({
+          user_id: currentUser.id,
+          session_type: 'voice',
+          status: 'in_progress',
+          total_questions: 0,
+          questions_answered: 0,
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      setSessionId(data.id);
+    } catch (e) {
+      console.error('Failed to initialize voice session:', e);
+    }
   };
 
+  const finalizeAndSaveSession = async () => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser || !sessionId) return;
 
+      // Build structured Q&A from transcript messages
+      const aiQs: string[] = [];
+      const userAs: string[] = [];
+      for (const line of conversationMessages) {
+        if (line.startsWith('AI Interviewer:')) {
+          aiQs.push(line.replace('AI Interviewer: ', ''));
+        } else if (line.startsWith('You:')) {
+          userAs.push(line.replace('You: ', ''));
+        }
+      }
+      const pairCount = Math.min(aiQs.length, userAs.length);
+      const qas = Array.from({ length: pairCount }, (_, i) => ({
+        number: i + 1,
+        question_text: aiQs[i],
+        user_answer: userAs[i],
+        answered_at: new Date().toISOString(),
+        time_taken_seconds: Math.round((callDuration || 60) / Math.max(pairCount, 1)),
+      }));
+
+      // Analyze with Gemini utility
+      const analysis = await analyzeInterviewWithGemini({
+        questions: aiQs.slice(0, pairCount),
+        answers: userAs.slice(0, pairCount),
+        type: config.type,
+        industry: config.industry,
+        level: config.level,
+        duration: `${getDurationInMinutes()} minutes`
+      });
+
+      const skill_breakdown = {
+        communication: analysis.skillBreakdown.communication,
+        technical_knowledge: analysis.skillBreakdown.technical,
+        problem_solving: analysis.skillBreakdown.problemSolving,
+        cultural_fit: analysis.skillBreakdown.confidence,
+      };
+
+      const { data: updated, error } = await supabase
+        .from('practice_sessions')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          questions_answered: pairCount,
+          total_questions: pairCount,
+          duration_seconds: callDuration,
+          overall_score: Math.round(analysis.overallScore),
+          analysis_data: analysis as any,
+          strengths: analysis.strengths,
+          weaknesses: analysis.weaknesses,
+          recommendations: analysis.recommendations,
+          skill_breakdown,
+          detailed_feedback: analysis.detailedFeedback,
+          questions_data: {
+            qas,
+            transcript: conversationMessages,
+          },
+          feedback_summary: analysis.detailedFeedback,
+        })
+        .eq('id', sessionId)
+        .select()
+        .single();
+
+      if (error) throw error;
+    } catch (e) {
+      throw e;
+    }
+  };
   const stopInterview = () => {
     if (vapi && isCallActive) {
       setIsEnding(true);

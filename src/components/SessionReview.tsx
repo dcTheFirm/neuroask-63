@@ -276,14 +276,25 @@ export const SessionReview = ({ onBack, session, sessionData, sessionId }: Sessi
                 <CardContent>
                   {data.session_type === 'voice' ? (
                     <div className="text-sm text-muted-foreground">
-                      {data.questions_data.transcript || 
-                       (data.questions_data.messages && data.questions_data.messages.length > 0 
-                        ? data.questions_data.messages.join('\n') 
-                        : 'Voice transcript not available')}
+                      {Array.isArray(data.questions_data.transcript)
+                        ? data.questions_data.transcript.join('\n')
+                        : data.questions_data.transcript ||
+                          (Array.isArray(data.questions_data.messages) && data.questions_data.messages.length > 0
+                            ? data.questions_data.messages.join('\n')
+                            : 'Voice transcript not available')}
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {Array.isArray(data.questions_data) ? (
+                      {Array.isArray(data.questions_data?.qas) ? (
+                        data.questions_data.qas.map((item: any, index: number) => (
+                          <div key={index} className="p-3 rounded-lg bg-muted/50">
+                            <div className="font-medium text-sm mb-1">Question {item.number}</div>
+                            <div className="text-sm text-muted-foreground mb-2">{item.question_text}</div>
+                            <div className="font-medium text-sm mb-1">Your Answer</div>
+                            <div className="text-sm text-muted-foreground">{item.user_answer}</div>
+                          </div>
+                        ))
+                      ) : Array.isArray(data.questions_data) ? (
                         data.questions_data
                           .filter((msg: any) => msg.sender === 'ai' || msg.sender === 'user' || msg.role === 'assistant' || msg.role === 'user')
                           .map((msg: any, index: number) => (
