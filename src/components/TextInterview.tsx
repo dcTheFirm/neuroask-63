@@ -34,6 +34,7 @@ export const TextInterview = ({ onBack, onComplete, interviewConfig }: TextInter
   const [questionCount, setQuestionCount] = useState(0);
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const geminiRef = useRef<GoogleGenerativeAI | null>(null);
@@ -292,7 +293,9 @@ Ask a natural follow-up question based on their specific response.`;
   };
 
   const endSession = async () => {
+    if (isEnding) return;
     if (!sessionId) return;
+    setIsEnding(true);
     
     try {
       // First save all interview questions and answers
@@ -488,6 +491,7 @@ Ask a natural follow-up question based on their specific response.`;
               </div>
               <Button 
                 onClick={handleEndInterview}
+                disabled={isEnding}
                 variant="outline"
                 className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border-red-400/30 backdrop-blur-sm"
               >
