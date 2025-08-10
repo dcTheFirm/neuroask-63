@@ -331,6 +331,13 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
       setIsEnding(true);
       stopRequested.current = true;
       vapi.stop();
+      
+      // Show completion notification for voice interview
+      toast({
+        title: "Voice Interview Completed!",
+        description: `Interview ended successfully. You answered ${questionCounter.current} questions in ${Math.floor(callDuration / 60)} minutes.`,
+        variant: "default",
+      });
     }
   };
 

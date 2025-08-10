@@ -426,8 +426,9 @@ Ask a natural follow-up question based on their specific response.`;
       
       console.log('Session completed with comprehensive analysis');
       toast({
-        title: "Interview Analysis Complete!",
-        description: `Scored ${analysisData.overall_score}/100. Detailed feedback saved to your dashboard.`,
+        title: "Interview Completed Successfully!",
+        description: `Your interview has been saved with detailed analysis. Score: ${analysisData.overall_score}/100`,
+        variant: "default",
       });
       onComplete();
     } catch (error) {
