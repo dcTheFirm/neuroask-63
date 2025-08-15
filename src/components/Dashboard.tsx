@@ -49,7 +49,7 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
     queryKey: ['sessions', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('interview_sessions')
+        .from('practice_sessions')
         .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
@@ -77,23 +77,23 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
   }
 
   if (showProfile) {
-    return <UserProfile user={user} onClose={() => setShowProfile(false)} />;
+    return <UserProfile user={user} onBack={() => setShowProfile(false)} />;
   }
 
   if (showInterviewSetup) {
-    return <InterviewSetup onClose={() => setShowInterviewSetup(false)} />;
+    return <InterviewSetup onBack={() => setShowInterviewSetup(false)} onComplete={() => setShowInterviewSetup(false)} />;
   }
 
   if (showSessionReview && sessionId) {
-    return <SessionReview sessionId={sessionId} onClose={() => setShowSessionReview(false)} />;
+    return <SessionReview sessionId={sessionId} onBack={() => setShowSessionReview(false)} />;
   }
 
   if (showQuickSession) {
-    return <QuickSession onClose={() => setShowQuickSession(false)} />;
+    return <QuickSession onBack={() => setShowQuickSession(false)} interviewConfig={{ industry: 'Software Engineering', level: 'Mid Level', type: 'Technical', duration: '30 minutes' }} />;
   }
 
   if (showRandomPractice) {
-    return <RandomPractice onClose={() => setShowRandomPractice(false)} />;
+    return <RandomPractice onBack={() => setShowRandomPractice(false)} interviewConfig={{ industry: 'Software Engineering', level: 'Mid Level', type: 'Technical', duration: '30 minutes' }} />;
   }
 
   return (
@@ -186,10 +186,17 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
             </Card>
 
             {/* Account Statistics */}
-            <AccountStats sessions={sessions || []} />
+            <AccountStats />
 
             {/* Progress Tracker */}
-            <ProgressTracker sessions={sessions || []} />
+            <ProgressTracker sessions={sessions?.map(session => ({
+              id: session.id,
+              date: session.created_at,
+              type: session.session_type || 'text',
+              industry: session.feedback_summary || 'General',
+              score: (session.overall_score || 0) * 100,
+              duration: session.duration_seconds ? `${Math.floor(session.duration_seconds / 60)} min` : '0 min'
+            })) || []} />
 
             {/* Recent Sessions */}
             <Card className="bg-white/5 backdrop-blur-sm border border-white/10 shadow-xl hover:shadow-2xl transition-all duration-300 card-entrance lg:col-span-2">
@@ -208,13 +215,15 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
                   <p className="text-red-400">Error fetching sessions.</p>
                 ) : sessions && sessions.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {sessions.slice(0, 6).map((session) => (
+                     {sessions.slice(0, 6).map((session) => (
                       <Card key={session.id} className="bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/15 transition-all duration-300">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                          <CardTitle className="text-sm font-medium text-white">{session.type} Interview</CardTitle>
+                          <CardTitle className="text-sm font-medium text-white">{session.session_type || 'Text'} Interview</CardTitle>
                           <div className="space-x-1">
-                            <Badge variant="secondary">{session.level}</Badge>
-                            <Badge variant="outline">{session.industry}</Badge>
+                            <Badge variant="secondary">{session.status}</Badge>
+                            <Badge variant="outline">
+                              {session.overall_score ? `${Math.round((session.overall_score || 0) * 100)}%` : 'No Score'}
+                            </Badge>
                           </div>
                         </CardHeader>
                         <CardContent>
@@ -227,6 +236,12 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
                               <Clock className="h-4 w-4 inline-block mr-1" />
                               {new Date(session.created_at).toLocaleTimeString()}
                             </p>
+                            {session.duration_seconds && (
+                              <p>
+                                <Clock className="h-4 w-4 inline-block mr-1" />
+                                {Math.floor(session.duration_seconds / 60)} minutes
+                              </p>
+                            )}
                           </div>
                           <Button
                             onClick={() => handleSessionReview(session.id)}
