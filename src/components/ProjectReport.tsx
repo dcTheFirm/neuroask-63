@@ -431,7 +431,7 @@ export const ProjectReport = ({ onBack }: ProjectReportProps) => {
         </div>
       </div>
 
-      <style>{`
+      <style jsx>{`
         @media print {
           .page-break {
             page-break-before: always;
