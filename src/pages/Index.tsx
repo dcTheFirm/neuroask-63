@@ -123,8 +123,12 @@ const Index = () => {
   if (currentView === 'dashboard') {
     return (
       <Dashboard 
+        onBack={() => setCurrentView('landing')} 
+        onStartVoiceInterview={handleStartVoiceInterview}
+        onStartTextInterview={handleStartTextInterview}
         user={user}
-        onSignOut={handleLogout}
+        onProfile={() => setCurrentView('profile')}
+        interviewConfig={interviewConfig}
       />
     );
   }
