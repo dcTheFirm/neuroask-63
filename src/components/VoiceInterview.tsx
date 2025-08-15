@@ -397,7 +397,7 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
           questions_answered: pairCount,
           total_questions: pairCount,
           duration_seconds: callDuration,
-          overall_score: Math.round(analysis.overallScore),
+          overall_score: Math.max(0, Math.min(1, (analysis.overallScore || 0) / 100)), // Convert to decimal for DB
           analysis_data: analysis as any,
           strengths: analysis.strengths,
           weaknesses: analysis.weaknesses,

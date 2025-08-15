@@ -344,7 +344,7 @@ Ask a natural follow-up question based on their specific response.`;
       }));
 
       // Map analysis to DB columns (snake_case where appropriate)
-      const overallScore = Math.max(0, Math.min(100, analysisData.overallScore || 0));
+      const overallScore = Math.max(0, Math.min(1, (analysisData.overallScore || 0) / 100)); // Convert to decimal for DB
       const strengths = analysisData.strengths || [];
       const weaknesses = analysisData.weaknesses || [];
       const recommendations = analysisData.recommendations || [];
@@ -382,7 +382,7 @@ Ask a natural follow-up question based on their specific response.`;
             })),
             conversation_history: conversationHistory
           },
-          feedback_summary: detailedFeedback || `Score ${overallScore}/100 • Answered ${qas.length} questions`
+          feedback_summary: detailedFeedback || `Score ${Math.round(overallScore * 100)}/100 • Answered ${qas.length} questions`
         })
         .eq('id', sessionId)
         .select()
@@ -391,7 +391,7 @@ Ask a natural follow-up question based on their specific response.`;
       console.log('Session completed with comprehensive analysis');
       toast({
         title: "Interview Completed Successfully!",
-        description: `Your interview has been saved with detailed analysis. Score: ${overallScore}/100`,
+        description: `Your interview has been saved with detailed analysis. Score: ${Math.round(overallScore * 100)}/100`,
         variant: "default",
       });
       onComplete();

@@ -45,9 +45,13 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
 
   const [showProjectReport, setShowProjectReport] = useState(false);
 
-  const { data: sessions, isLoading, isError } = useQuery({
+  const { data: sessions, isLoading, isError, refetch } = useQuery({
     queryKey: ['sessions', user?.id],
     queryFn: async () => {
+      if (!user?.id) {
+        return [];
+      }
+      
       const { data, error } = await supabase
         .from('practice_sessions')
         .select('*')
@@ -55,17 +59,25 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
         .order('created_at', { ascending: false });
 
       if (error) {
+        console.error('Error fetching sessions:', error);
         throw new Error(error.message);
       }
-      return data;
+      return data || [];
     },
+    enabled: !!user?.id,
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Always refetch to ensure fresh data
   });
 
   useEffect(() => {
     if (isError) {
-      console.error("Error fetching sessions");
+      console.error("Error fetching sessions:", isError);
+      // Check if user is authenticated
+      if (!user?.id) {
+        console.error("User not authenticated");
+      }
     }
-  }, [isError]);
+  }, [isError, user]);
 
   const handleSessionReview = (id: string) => {
     setSessionId(id);
@@ -81,7 +93,10 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
   }
 
   if (showInterviewSetup) {
-    return <InterviewSetup onBack={() => setShowInterviewSetup(false)} onComplete={() => setShowInterviewSetup(false)} />;
+    return <InterviewSetup onBack={() => setShowInterviewSetup(false)} onComplete={() => {
+      setShowInterviewSetup(false);
+      refetch(); // Refetch sessions after interview completion
+    }} />;
   }
 
   if (showSessionReview && sessionId) {
@@ -89,11 +104,17 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
   }
 
   if (showQuickSession) {
-    return <QuickSession onBack={() => setShowQuickSession(false)} interviewConfig={{ industry: 'Software Engineering', level: 'Mid Level', type: 'Technical', duration: '30 minutes' }} />;
+    return <QuickSession onBack={() => setShowQuickSession(false)} onComplete={() => {
+      setShowQuickSession(false);
+      refetch(); // Refetch sessions after interview completion
+    }} interviewConfig={{ industry: 'Software Engineering', level: 'Mid Level', type: 'Technical', duration: '30 minutes' }} />;
   }
 
   if (showRandomPractice) {
-    return <RandomPractice onBack={() => setShowRandomPractice(false)} interviewConfig={{ industry: 'Software Engineering', level: 'Mid Level', type: 'Technical', duration: '30 minutes' }} />;
+    return <RandomPractice onBack={() => setShowRandomPractice(false)} onComplete={() => {
+      setShowRandomPractice(false);
+      refetch(); // Refetch sessions after interview completion
+    }} interviewConfig={{ industry: 'Software Engineering', level: 'Mid Level', type: 'Technical', duration: '30 minutes' }} />;
   }
 
   return (
@@ -222,7 +243,7 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
                           <div className="space-x-1">
                             <Badge variant="secondary">{session.status}</Badge>
                             <Badge variant="outline">
-                              {session.overall_score ? `${Math.round((session.overall_score || 0) * 100)}%` : 'No Score'}
+                              {session.overall_score ? `${Math.round(session.overall_score * 100)}%` : 'No Score'}
                             </Badge>
                           </div>
                         </CardHeader>

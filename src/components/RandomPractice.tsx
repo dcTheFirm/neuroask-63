@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface RandomPracticeProps {
   onBack: () => void;
+  onComplete?: () => void;
   interviewConfig: {
     industry: string;
     level: string;
@@ -15,7 +16,7 @@ interface RandomPracticeProps {
   };
 }
 
-export const RandomPractice = ({ onBack, interviewConfig }: RandomPracticeProps) => {
+export const RandomPractice = ({ onBack, onComplete, interviewConfig }: RandomPracticeProps) => {
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [timeLeft, setTimeLeft] = useState(180); // 3 minutes
@@ -80,6 +81,10 @@ export const RandomPractice = ({ onBack, interviewConfig }: RandomPracticeProps)
         title: "Time's up!",
         description: "Great job practicing! Review your answer and try another question.",
       });
+      // Call onComplete to trigger dashboard refresh
+      if (onComplete) {
+        onComplete();
+      }
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -112,6 +117,10 @@ export const RandomPractice = ({ onBack, interviewConfig }: RandomPracticeProps)
       title: "Answer submitted!",
       description: "Great job! Your answer has been recorded for practice.",
     });
+    // Call onComplete to trigger dashboard refresh
+    if (onComplete) {
+      onComplete();
+    }
   };
 
   return (

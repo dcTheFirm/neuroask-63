@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface QuickSessionProps {
   onBack: () => void;
+  onComplete?: () => void;
   interviewConfig: {
     industry: string;
     level: string;
@@ -22,7 +23,7 @@ interface QuickSessionProps {
   };
 }
 
-export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => {
+export const QuickSession = ({ onBack, onComplete, interviewConfig }: QuickSessionProps) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
   const [currentAnswer, setCurrentAnswer] = useState("");
@@ -485,6 +486,11 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
         description: `Great job! You've completed your 5-minute ${sessionType} practice session.`,
       });
     }
+    
+    // Call onComplete to trigger dashboard refresh
+    if (onComplete) {
+      onComplete();
+    }
   };
 
   const viewStats = () => {
@@ -615,7 +621,7 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
                   </div>
                   
                   <div className="flex space-x-3 justify-center">
-                    <Button onClick={onBack} variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
+                    <Button onClick={() => { onComplete ? onComplete() : onBack(); }} variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
                       Back to Dashboard
                     </Button>
                     <Button onClick={() => window.location.reload()} className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-lg">
@@ -663,7 +669,7 @@ export const QuickSession = ({ onBack, interviewConfig }: QuickSessionProps) => 
                   )}
                   
                   <div className="flex space-x-3 justify-center">
-                    <Button onClick={onBack} variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
+                    <Button onClick={() => { onComplete ? onComplete() : onBack(); }} variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
                       Back to Dashboard
                     </Button>
                     <Button 
