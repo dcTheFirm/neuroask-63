@@ -11,6 +11,7 @@ import {
   Award, 
   TrendingUp, 
   Clock,
+  FileText,
   Brain,
   Mic,
   MessageSquare,
@@ -25,7 +26,7 @@ import { QuickSession } from "./QuickSession";
 import { RandomPractice } from "./RandomPractice";
 import { ProgressTracker } from "./ProgressTracker";
 import { AccountStats } from "./AccountStats";
-
+import { ProjectReport } from "./ProjectReport";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
@@ -42,7 +43,7 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
   const [showQuickSession, setShowQuickSession] = useState(false);
   const [showRandomPractice, setShowRandomPractice] = useState(false);
 
-  
+  const [showProjectReport, setShowProjectReport] = useState(false);
 
   const { data: sessions, isLoading, isError } = useQuery({
     queryKey: ['sessions', user?.id],
@@ -71,6 +72,9 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
     setShowSessionReview(true);
   };
 
+  if (showProjectReport) {
+    return <ProjectReport onBack={() => setShowProjectReport(false)} />;
+  }
 
   if (showProfile) {
     return <UserProfile user={user} onBack={() => setShowProfile(false)} />;
@@ -115,6 +119,14 @@ export const Dashboard = ({ user, onSignOut }: DashboardProps) => {
               </p>
             </div>
             <div className="flex gap-4 items-center">
+              <Button
+                onClick={() => setShowProjectReport(true)}
+                variant="outline"
+                className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-all duration-300"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Project Report
+              </Button>
               <Button
                 onClick={() => setShowProfile(true)}
                 variant="outline"
