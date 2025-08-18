@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { RandomPractice } from "@/components/RandomPractice";
 import { QuickSession } from "@/components/QuickSession";
 import { SessionReview } from "@/components/SessionReview";
+import { InterviewAnalysis } from "@/components/InterviewAnalysis";
+import { ProgressTracker } from "@/components/ProgressTracker";
 
 interface DashboardProps {
   onBack: () => void;
@@ -26,7 +28,7 @@ interface DashboardProps {
 
 export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview, user, onProfile, interviewConfig }: DashboardProps) => {
   const [currentView, setCurrentView] = useState<'dashboard' | 'random-practice' | 'quick-session' | 'session-review'>('dashboard');
-  const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const [selectedSession, setSelectedSession] = useState<any | null>(null);
   const [dashboardAnalytics, setDashboardAnalytics] = useState<any>(null);
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,7 +170,8 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
   };
 
   const handleSessionReview = (sessionId: string) => {
-    setSelectedSession(sessionId);
+    const session = recentSessions.find(s => s.id === sessionId);
+    setSelectedSession(session || null);
     setCurrentView('session-review');
   };
 
@@ -201,7 +204,12 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
   }
 
   if (currentView === 'session-review') {
-    return <SessionReview onBack={() => setCurrentView('dashboard')} sessionId={selectedSession} />;
+    // Show InterviewAnalysis for the selected session
+    return selectedSession ? (
+      <InterviewAnalysis onBack={() => setCurrentView('dashboard')} sessionData={selectedSession} />
+    ) : (
+      <SessionReview onBack={() => setCurrentView('dashboard')} sessionId={selectedSession?.id || ''} />
+    );
   }
 
   return (
@@ -268,6 +276,11 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
                 </CardContent>
               </Card>
             ))}
+          </div>
+
+          {/* Progress Tracker */}
+          <div className="mb-8">
+            <ProgressTracker sessions={recentSessions} />
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
