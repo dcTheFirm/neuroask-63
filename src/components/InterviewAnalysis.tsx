@@ -1,131 +1,79 @@
-
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Download, BarChart3, TrendingUp, Target, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface InterviewAnalysisProps {
   onBack: () => void;
-  sessionData?: any;
+  sessionId: string;
 }
 
-export const InterviewAnalysis = ({ onBack, sessionData }: InterviewAnalysisProps) => {
+export const InterviewAnalysis = ({ onBack, sessionId }: InterviewAnalysisProps) => {
   const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<any | null>(null);
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('practice_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+      if (error) {
+        toast({ title: "Error", description: "Failed to load interview session.", variant: "destructive" });
+        setSession(null);
+      } else {
+        setSession(data);
+      }
+      setLoading(false);
+    };
+    if (sessionId) fetchSession();
+  }, [sessionId, toast]);
 
   const handleExportReport = () => {
+    if (!session) return;
+    const strengths = Array.isArray(session.strengths) ? session.strengths : [];
+    const weaknesses = Array.isArray(session.weaknesses) ? session.weaknesses : [];
+    const recommendations = Array.isArray(session.recommendations) ? session.recommendations : [];
+    const improvements = Array.isArray(session.improvements) ? session.improvements : [];
     const reportContent = `
 INTERVIEW ANALYSIS REPORT
 ========================
 
 Session Overview:
-- Date: ${new Date().toLocaleDateString()}
-- Duration: 25 minutes
-- Industry: Software Engineering
-- Level: Mid Level
-- Type: Technical Interview
+- Date: ${new Date(session.completed_at || session.created_at).toLocaleDateString()}
+- Duration: ${Math.round((session.duration_seconds || 0) / 60)} minutes
+- Industry: ${session.industry || "N/A"}
+- Level: ${session.level || "N/A"}
+- Type: ${session.type || session.session_type || "N/A"}
 
 Performance Summary:
-- Overall Score: 85/100
-- Communication: 90/100
-- Technical Knowledge: 82/100
-- Problem Solving: 88/100
-- Professional Presence: 85/100
+- Overall Score: ${session.overall_score || 0}/100
+- Communication: ${session.skill_breakdown?.communication || 0}/100
+- Technical Knowledge: ${session.skill_breakdown?.technical_knowledge || 0}/100
+- Problem Solving: ${session.skill_breakdown?.problem_solving || 0}/100
+- Cultural Fit: ${session.skill_breakdown?.cultural_fit || 0}/100
 
-Detailed Analysis:
-=================
+Strengths:
+${strengths.length > 0 ? strengths.map((s: string) => `• ${s}`).join('\n') : 'No strengths recorded.'}
 
-STRENGTHS:
-• Excellent communication skills and clear articulation
-• Strong problem-solving approach with systematic thinking
-• Good use of technical terminology and concepts
-• Professional demeanor throughout the interview
-• Provided specific examples to support answers
-• Demonstrated confidence in core technical areas
-• Used structured approach to answer behavioral questions
+Areas for Improvement:
+${(weaknesses.length > 0 ? weaknesses : improvements).length > 0 ? (weaknesses.length > 0 ? weaknesses : improvements).map((w: string) => `• ${w}`).join('\n') : 'No improvements recorded.'}
 
-AREAS FOR IMPROVEMENT:
-• Consider discussing time complexity more thoroughly
-• Practice explaining complex concepts in simpler terms
-• Work on providing more concrete examples for behavioral questions
-• Improve confidence when discussing unfamiliar topics
-• Prepare more diverse examples for STAR method responses
-• Review advanced system design concepts
-• Practice whiteboard coding under time pressure
+Recommendations:
+${recommendations.length > 0 ? recommendations.map((r: string) => `• ${r}`).join('\n') : 'No recommendations recorded.'}
 
-DETAILED FEEDBACK:
-=================
-
-Technical Skills Assessment:
-The candidate demonstrated strong technical knowledge with a solid understanding of software engineering principles. Code implementation was clean and well-structured. However, there's room for improvement in discussing algorithmic complexity and scalability considerations.
-
-Communication Skills:
-Excellent verbal communication with clear explanations. The candidate articulated thoughts well and maintained good eye contact. Responses were well-organized and easy to follow.
-
-Problem-Solving Approach:
-Showed systematic thinking and good analytical skills. Approached problems methodically, breaking them down into manageable parts. Could benefit from more detailed explanation of thought process.
-
-Behavioral Responses:
-Used STAR method effectively for most behavioral questions. Examples were relevant and demonstrated leadership potential. Would benefit from preparing more diverse scenarios.
-
-RECOMMENDATIONS:
-===============
-
-Immediate Actions (Next 1-2 weeks):
-1. Practice system design questions focusing on scalability
-2. Review time and space complexity for common algorithms
-3. Prepare 5-7 additional STAR method examples
-4. Practice explaining technical concepts to non-technical audiences
-
-Medium-term Goals (Next 1-2 months):
-1. Complete mock interview sessions with peers or mentors
-2. Study advanced data structures and algorithms
-3. Practice whiteboard coding regularly
-4. Improve knowledge of distributed systems concepts
-
-Long-term Development (Next 3-6 months):
-1. Seek leadership opportunities in current role
-2. Contribute to open-source projects
-3. Stay updated with industry trends and best practices
-4. Build portfolio projects demonstrating technical skills
-
-NEXT STEPS:
-==========
-
-1. Schedule follow-up practice sessions focusing on identified weak areas
-2. Review common behavioral questions and prepare structured responses
-3. Practice technical concepts with emphasis on clear explanation
-4. Continue regular interview practice to maintain and improve skills
-5. Seek feedback from mentors and peers on communication style
-
-SCORING BREAKDOWN:
-=================
-
-Communication (90/100):
-- Clear articulation: Excellent
-- Professional tone: Excellent
-- Listening skills: Very Good
-- Question clarification: Good
-
-Technical Knowledge (82/100):
-- Core concepts: Very Good
-- Problem-solving: Very Good
-- Code quality: Good
-- System design: Needs Improvement
-
-Professional Presence (85/100):
-- Confidence: Very Good
-- Engagement: Excellent
-- Professionalism: Excellent
-- Time management: Good
-
-Overall Assessment:
-The candidate shows strong potential with solid technical skills and excellent communication abilities. With focused preparation on identified areas, they should perform well in future interviews.
+Detailed Feedback:
+${session.detailed_feedback || "No feedback available."}
 
 Generated by Neuro Ask Interview Practice Platform
 Report Date: ${new Date().toLocaleString()}
-Session ID: ${Math.random().toString(36).substr(2, 9).toUpperCase()}
+Session ID: ${session.id}
     `;
 
     const blob = new Blob([reportContent], { type: 'text/plain' });
@@ -144,28 +92,23 @@ Session ID: ${Math.random().toString(36).substr(2, 9).toUpperCase()}
     });
   };
 
-  const analysisData = {
-    overallScore: 85,
-    scores: {
-      communication: 90,
-      technical: 82,
-      problemSolving: 88,
-      presence: 85
-    },
-    strengths: [
-      "Excellent communication skills and clear articulation",
-      "Strong problem-solving approach with systematic thinking",
-      "Good use of technical terminology and concepts",
-      "Professional demeanor throughout the interview",
-      "Provided specific examples to support answers"
-    ],
-    improvements: [
-      "Consider discussing time complexity more thoroughly",
-      "Practice explaining complex concepts in simpler terms",
-      "Work on providing more concrete examples for behavioral questions",
-      "Improve confidence when discussing unfamiliar topics"
-    ]
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <p className="text-white/70">Loading interview analysis...</p>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-red-400">Interview session not found.</p>
+        <Button onClick={onBack} className="mt-4">Back</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black relative overflow-hidden page-enter">
@@ -217,17 +160,17 @@ Session ID: ${Math.random().toString(36).substr(2, 9).toUpperCase()}
                 </CardHeader>
                 <CardContent>
                   <div className="text-center mb-6">
-                    <div className="text-5xl font-bold text-white mb-2">{analysisData.overallScore}</div>
+                    <div className="text-5xl font-bold text-white mb-2">{session.overall_score || 0}</div>
                     <div className="text-cyan-200">out of 100</div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
-                    {Object.entries(analysisData.scores).map(([key, score]) => (
+                    {session.skill_breakdown && Object.entries(session.skill_breakdown).map(([key, score]) => (
                       <div key={key} className="space-y-2">
                         <div className="flex justify-between">
-                          <span className="text-white/90 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                          <span className="text-blue-300 font-semibold">{score}%</span>
+                          <span className="text-white/90 capitalize">{key.replace(/_/g, ' ')}</span>
+                          <span className="text-blue-300 font-semibold">{typeof score === 'number' ? `${score}%` : 'N/A'}</span>
                         </div>
-                        <Progress value={score} className="bg-white/20" />
+                        <Progress value={typeof score === 'number' ? score : 0} className="bg-white/20" />
                       </div>
                     ))}
                   </div>
@@ -235,44 +178,154 @@ Session ID: ${Math.random().toString(36).substr(2, 9).toUpperCase()}
               </Card>
 
               {/* Strengths */}
-              <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-white">
-                    <CheckCircle className="h-5 w-5 mr-2 text-green-400" />
-                    Strengths
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {analysisData.strengths.map((strength, index) => (
-                      <div key={index} className="flex items-start space-x-3 fade-in">
-                        <CheckCircle className="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0" />
-                        <p className="text-white/90">{strength}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              {Array.isArray(session.strengths) && session.strengths.length > 0 ? (
+                <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-white">
+                      <CheckCircle className="h-5 w-5 mr-2 text-green-400" />
+                      Strengths
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {session.strengths.map((strength: string, index: number) => (
+                        <div key={index} className="flex items-start space-x-3 fade-in">
+                          <CheckCircle className="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0" />
+                          <p className="text-white/90">{strength}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="bg-white/10 backdrop-blur-md border border-white/20">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-white">
+                      <CheckCircle className="h-5 w-5 mr-2 text-green-400" />
+                      Strengths
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-white/70">No strengths recorded.</div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Areas for Improvement */}
-              <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-white">
-                    <Target className="h-5 w-5 mr-2 text-orange-400" />
-                    Areas for Improvement
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {analysisData.improvements.map((improvement, index) => (
-                      <div key={index} className="flex items-start space-x-3 fade-in">
-                        <AlertCircle className="h-5 w-5 text-orange-400 mt-0.5 flex-shrink-0" />
-                        <p className="text-white/90">{improvement}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              {Array.isArray(session.weaknesses) && session.weaknesses.length > 0 ? (
+                <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-white">
+                      <Target className="h-5 w-5 mr-2 text-orange-400" />
+                      Areas for Improvement
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {session.weaknesses.map((improvement: string, index: number) => (
+                        <div key={index} className="flex items-start space-x-3 fade-in">
+                          <AlertCircle className="h-5 w-5 text-orange-400 mt-0.5 flex-shrink-0" />
+                          <p className="text-white/90">{improvement}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : Array.isArray(session.improvements) && session.improvements.length > 0 ? (
+                <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-white">
+                      <Target className="h-5 w-5 mr-2 text-orange-400" />
+                      Areas for Improvement
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {session.improvements.map((improvement: string, index: number) => (
+                        <div key={index} className="flex items-start space-x-3 fade-in">
+                          <AlertCircle className="h-5 w-5 text-orange-400 mt-0.5 flex-shrink-0" />
+                          <p className="text-white/90">{improvement}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="bg-white/10 backdrop-blur-md border border-white/20">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-white">
+                      <Target className="h-5 w-5 mr-2 text-orange-400" />
+                      Areas for Improvement
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-white/70">No improvements recorded.</div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Recommendations */}
+              {Array.isArray(session.recommendations) && session.recommendations.length > 0 ? (
+                <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-white">
+                      <TrendingUp className="h-5 w-5 mr-2 text-blue-400" />
+                      Recommendations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {session.recommendations.map((rec: string, index: number) => (
+                        <div key={index} className="flex items-start space-x-3 fade-in">
+                          <TrendingUp className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                          <p className="text-white/90">{rec}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="bg-white/10 backdrop-blur-md border border-white/20">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-white">
+                      <TrendingUp className="h-5 w-5 mr-2 text-blue-400" />
+                      Recommendations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-white/70">No recommendations recorded.</div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Detailed Feedback */}
+              {session.detailed_feedback ? (
+                <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-white">
+                      <BarChart3 className="h-5 w-5 mr-2 text-cyan-400" />
+                      Detailed Feedback
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-white/80 text-sm whitespace-pre-line">
+                      {session.detailed_feedback}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="bg-white/10 backdrop-blur-md border border-white/20">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-white">
+                      <BarChart3 className="h-5 w-5 mr-2 text-cyan-400" />
+                      Detailed Feedback
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-white/70">No feedback available.</div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Sidebar */}
@@ -285,42 +338,19 @@ Session ID: ${Math.random().toString(36).substr(2, 9).toUpperCase()}
                 <CardContent className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-white/80">Duration:</span>
-                    <span className="font-medium text-white">25 minutes</span>
+                    <span className="font-medium text-white">{Math.round((session.duration_seconds || 0) / 60)} minutes</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/80">Questions:</span>
-                    <span className="font-medium text-white">8 answered</span>
+                    <span className="font-medium text-white">{session.questions_answered || 0} answered</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/80">Industry:</span>
-                    <span className="font-medium text-white">Software Engineering</span>
+                    <span className="font-medium text-white">{session.industry || "N/A"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/80">Level:</span>
-                    <span className="font-medium text-white">Mid Level</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Recommendations */}
-              <Card className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-md border border-purple-500/30 hover:from-purple-500/25 hover:to-pink-500/25 transition-all duration-300 scale-in">
-                <CardHeader>
-                  <CardTitle className="text-white">Next Steps</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 text-sm">
-                    <div className="p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
-                      <p className="font-medium text-white mb-1">Practice System Design</p>
-                      <p className="text-white/80">Focus on scalability and architecture questions</p>
-                    </div>
-                    <div className="p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
-                      <p className="font-medium text-white mb-1">Behavioral Questions</p>
-                      <p className="text-white/80">Prepare more STAR method examples</p>
-                    </div>
-                    <div className="p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
-                      <p className="font-medium text-white mb-1">Mock Interviews</p>
-                      <p className="text-white/80">Schedule regular practice sessions</p>
-                    </div>
+                    <span className="font-medium text-white">{session.level || "N/A"}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -330,4 +360,4 @@ Session ID: ${Math.random().toString(36).substr(2, 9).toUpperCase()}
       </div>
     </div>
   );
-};
+}

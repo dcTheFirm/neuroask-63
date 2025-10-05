@@ -10,6 +10,8 @@ import { RandomPractice } from "@/components/RandomPractice";
 import { QuickSession } from "@/components/QuickSession";
 import { SessionReview } from "@/components/SessionReview";
 import { InterviewAnalysis } from "@/components/InterviewAnalysis";
+import { VoiceInterview } from "@/components/VoiceInterview";
+import { TextInterview } from "@/components/TextInterview";
 import { ProgressTracker } from "@/components/ProgressTracker";
 
 interface DashboardProps {
@@ -27,7 +29,7 @@ interface DashboardProps {
 }
 
 export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview, user, onProfile, interviewConfig }: DashboardProps) => {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'random-practice' | 'quick-session' | 'session-review'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'random-practice' | 'quick-session' | 'session-review' | 'voice-interview' | 'text-interview'>('dashboard');
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
   const [dashboardAnalytics, setDashboardAnalytics] = useState<any>(null);
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
@@ -149,10 +151,19 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
     return true;
   };
 
+  const [lastSessionId, setLastSessionId] = useState<string | null>(null);
+
   const handleVoiceInterview = () => {
     if (validateInterviewConfig()) {
       onStartVoiceInterview();
     }
+  };
+
+  // Called when user clicks 'View Interview Review' in VoiceInterview
+  const handleViewReview = (sessionId: string) => {
+    setLastSessionId(sessionId);
+    setSelectedSession(null); // Will fetch from DB in SessionReview
+    setCurrentView('session-review');
   };
 
   const handleTextInterview = () => {
@@ -203,13 +214,31 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
     return <QuickSession onBack={() => setCurrentView('dashboard')} interviewConfig={interviewConfig} />;
   }
 
+  if (currentView === 'voice-interview') {
+    return <VoiceInterview
+      onBack={() => setCurrentView('dashboard')}
+      onComplete={() => setCurrentView('dashboard')}
+      onViewReview={handleViewReview}
+      interviewConfig={interviewConfig}
+    />;
+  }
+
+  if (currentView === 'text-interview') {
+    return <TextInterview
+      onBack={() => setCurrentView('dashboard')}
+      onComplete={() => setCurrentView('dashboard')}
+      interviewConfig={interviewConfig}
+    />;
+  }
+
   if (currentView === 'session-review') {
-    // Show InterviewAnalysis for the selected session
-    return selectedSession ? (
-      <InterviewAnalysis onBack={() => setCurrentView('dashboard')} sessionData={selectedSession} />
-    ) : (
-      <SessionReview onBack={() => setCurrentView('dashboard')} sessionId={selectedSession?.id || ''} />
-    );
+    if (selectedSession) {
+      return <InterviewAnalysis onBack={() => setCurrentView('dashboard')} sessionId={selectedSession?.id} />;
+    } else if (lastSessionId) {
+      return <SessionReview onBack={() => setCurrentView('dashboard')} sessionId={lastSessionId} />;
+    } else {
+      return <SessionReview onBack={() => setCurrentView('dashboard')} sessionId={selectedSession?.id || ''} />;
+    }
   }
 
   return (
@@ -346,7 +375,7 @@ export const Dashboard = ({ onBack, onStartVoiceInterview, onStartTextInterview,
 
             {/* Sidebar - Quick Actions & Recommendations */}
             <div className="space-y-6">
-              {/* Quick Start */}
+              {/* Sidebar - Quick Actions & Recommendations */}
               <Card className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-300 slide-up">
                 <CardHeader>
                   <CardTitle className="text-white">Quick Start</CardTitle>

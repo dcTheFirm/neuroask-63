@@ -11,6 +11,7 @@ import { analyzeInterviewWithGemini } from "@/utils/geminiAnalytics";
 interface VoiceInterviewProps {
   onBack: () => void;
   onComplete: () => void;
+  onViewReview?: (sessionId: string) => void;
   interviewConfig: {
     industry: string;
     level: string;
@@ -19,13 +20,16 @@ interface VoiceInterviewProps {
   };
 }
 
-export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInterviewProps) => {
+export const VoiceInterview = ({ onBack, onComplete, onViewReview, interviewConfig }: VoiceInterviewProps) => {
+  const [showReviewButton, setShowReviewButton] = useState(false);
   const [vapi, setVapi] = useState<Vapi | null>(null);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [conversationMessages, setConversationMessages] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isMicReady, setIsMicReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -48,39 +52,48 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
   useEffect(() => {
     if (initializeAttempted.current) return;
     initializeAttempted.current = true;
+    setIsLoading(true);
+    setConnectionStatus('connecting');
 
-    const initializeVapi = async () => {
+    // Start Vapi and mic permission in parallel
+    const VAPI_API_KEY = "8a96f7dc-932d-4ed3-b067-d125fcc61afb";
+    let vapiInstance: Vapi | null = null;
+
+    const vapiPromise = new Promise<void>((resolve, reject) => {
       try {
-        console.log("Initializing AI Voice Interview...");
-        setConnectionStatus('connecting');
-        
-        // Use API key from code
-        const VAPI_API_KEY = "8a96f7dc-932d-4ed3-b067-d125fcc61afb";
-        
-        // Request microphone permission first
-        try {
-          await navigator.mediaDevices.getUserMedia({ audio: true });
-          console.log("Microphone permission granted");
-        } catch (micError) {
-          console.error("Microphone permission denied:", micError);
-          toast({
-            title: "Microphone Access Required",
-            description: "Please allow microphone access to use AI voice interviews.",
-            variant: "destructive",
-          });
-          setHasError(true);
-          setConnectionStatus('disconnected');
-          return;
-        }
-
-        const vapiInstance = new Vapi(VAPI_API_KEY);
+        vapiInstance = new Vapi(VAPI_API_KEY);
         setVapi(vapiInstance);
         setIsInitialized(true);
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+    const micPromise = navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(() => {
+        setIsMicReady(true);
+        return true;
+      })
+      .catch((micError) => {
+        setIsMicReady(false);
+        toast({
+          title: "Microphone Access Required",
+          description: "Please allow microphone access to use AI voice interviews.",
+          variant: "destructive",
+        });
+        setHasError(true);
+        setConnectionStatus('disconnected');
+        return false;
+      });
+
+    Promise.all([vapiPromise, micPromise]).then(([_, micReady]) => {
+      setIsLoading(false);
+      if (micReady && vapiInstance) {
         setConnectionStatus('connected');
 
-        // Enhanced event listeners for AI-powered interview
+        // Attach listeners
         vapiInstance.on("call-start", () => {
-          console.log("AI Voice Interview started");
           setIsCallActive(true);
           setHasError(false);
           setIsEnding(false);
@@ -90,57 +103,43 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
             description: "Your intelligent voice interview has begun!",
           });
         });
-
         vapiInstance.on("call-end", async () => {
-          console.log("AI Interview ended");
           setIsCallActive(false);
           setIsEnding(false);
           setConnectionStatus('disconnected');
           setAiSpeaking(false);
           setUserSpeaking(false);
-
           try {
             await finalizeAndSaveSession();
             toast({
               title: "AI Interview Completed",
               description: "Your voice interview has been saved and analyzed.",
             });
+            setShowReviewButton(true);
           } catch (err: any) {
-            console.error('Failed to save voice session:', err);
             toast({
               title: "Save Failed",
               description: "Could not save/analyze the session. Please try again.",
               variant: "destructive",
             });
           }
-          setTimeout(() => onComplete(), 800);
         });
-
         vapiInstance.on("speech-start", () => {
           setAiSpeaking(true);
           setUserSpeaking(false);
         });
-
         vapiInstance.on("speech-end", () => {
           setAiSpeaking(false);
           setUserSpeaking(false);
         });
-
         vapiInstance.on("message", (message: any) => {
-          console.log("AI Interview message:", message);
-          
-          // Handle transcripts for AI conversation tracking
           if (message.type === "transcript" && message.transcript && message.transcriptType === "final") {
             const messageText = `${message.role === "user" ? "You" : "AI Interviewer"}: ${message.transcript}`;
             setConversationMessages(prev => [...prev, messageText]);
-            
-            // Count user responses but don't save to backend
             if (message.role === "user" && message.transcript.trim()) {
               questionCounter.current += 1;
             }
           }
-          
-          // Enhanced stop request detection
           if (message.type === "transcript" && message.transcript && message.role === "user") {
             const transcript = message.transcript.toLowerCase();
             const stopKeywords = [
@@ -148,21 +147,16 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
               "end this interview", "i want to stop", "please stop",
               "finish interview", "conclude interview"
             ];
-            
             const shouldStop = stopKeywords.some(keyword => transcript.includes(keyword));
-            
             if (shouldStop && !stopRequested.current) {
-              console.log("User requested to stop the AI interview");
               stopRequested.current = true;
               setTimeout(() => {
-                if (vapi && isCallActive) {
-                  vapi.stop();
+                if (vapiInstance && isCallActive) {
+                  vapiInstance.stop();
                 }
               }, 1000);
             }
           }
-          
-          // AI conclusion detection
           if (message.type === "transcript" && message.transcript && message.role === "assistant") {
             const transcript = message.transcript.toLowerCase();
             const conclusionKeywords = [
@@ -173,24 +167,17 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
               "thank you for joining us today",
               "great conversation today"
             ];
-            
-            const isConclusion = conclusionKeywords.some(keyword => 
-              transcript.includes(keyword)
-            );
-            
+            const isConclusion = conclusionKeywords.some(keyword => transcript.includes(keyword));
             if (isConclusion && !stopRequested.current) {
-              console.log("AI is concluding the interview");
               setTimeout(() => {
-                if (vapi && isCallActive) {
-                  vapi.stop();
+                if (vapiInstance && isCallActive) {
+                  vapiInstance.stop();
                 }
               }, 3000);
             }
           }
         });
-
         vapiInstance.on("error", (error: any) => {
-          console.error("AI Interview error:", error);
           setHasError(true);
           setIsCallActive(false);
           setIsEnding(false);
@@ -201,28 +188,23 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
             variant: "destructive",
           });
         });
-
-      } catch (error) {
-        console.error("Failed to initialize AI Voice Interview:", error);
-        setHasError(true);
-        setConnectionStatus('disconnected');
-        toast({
-          title: "AI Voice System Unavailable", 
-          description: "Please configure your VAPI API key in project settings.",
-          variant: "destructive",
-        });
       }
-    };
-
-    initializeVapi();
+    }).catch((error) => {
+      setIsLoading(false);
+      setHasError(true);
+      setConnectionStatus('disconnected');
+      toast({
+        title: "AI Voice System Unavailable", 
+        description: "Please configure your VAPI API key in project settings.",
+        variant: "destructive",
+      });
+    });
 
     return () => {
       if (vapi) {
         try {
           vapi.stop();
-        } catch (error) {
-          console.error("Error stopping AI Interview:", error);
-        }
+        } catch (error) {}
       }
     };
   }, [onComplete, toast]);
@@ -555,15 +537,31 @@ export const VoiceInterview = ({ onBack, onComplete, interviewConfig }: VoiceInt
                     </div>
                   </div>
 
-                  <Button 
-                    onClick={startAIInterview}
-                    disabled={!isInitialized || connectionStatus !== 'connected'}
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-6 text-lg font-semibold"
-                  >
-                    <Mic className="h-5 w-5 mr-3" />
-                    Start AI Interview
-                  </Button>
-                  
+                  {isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-6">
+                      <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-purple-500 mb-4"></div>
+                      <p className="text-white/60">Preparing AI voice system...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Button 
+                        onClick={startAIInterview}
+                        disabled={!isInitialized || !isMicReady || connectionStatus !== 'connected' || hasError}
+                        className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-6 text-lg font-semibold"
+                      >
+                        <Mic className="h-5 w-5 mr-3" />
+                        Start AI Interview
+                      </Button>
+                      {showReviewButton && sessionId && (
+                        <Button
+                          className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white py-4 text-lg font-semibold mt-4"
+                          onClick={() => onViewReview && sessionId && onViewReview(sessionId)}
+                        >
+                          View Interview Review
+                        </Button>
+                      )}
+                    </>
+                  )}
                   <p className="text-xs text-white/40">
                     Make sure your microphone is working and you're in a quiet environment
                   </p>
