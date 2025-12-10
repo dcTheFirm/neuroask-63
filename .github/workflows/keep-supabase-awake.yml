@@ -19,6 +19,6 @@ jobs:
 
     steps:
       - name: Ping Supabase Project A
-        run: curl -I https://sivcpdjtgysnryvfbcvw.supabase.co/rest/v1/
+        run: curl -I https://wkfkmzgekxmczxhfxsey.supabase.co/rest/v1/
 
      
