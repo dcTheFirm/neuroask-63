@@ -112,16 +112,7 @@ Supabase functions:
 
 This project is provided under the MIT license — update this if you use a different license.
 
-For questions or support, open an issue in the repository.
 
----
 
-If you'd like, I can:
-
-- Create a `.env.example` file with placeholders (I will add it now if you want)
-- Add a short CONTRIBUTING.md and CODE_OF_CONDUCT
-- Add CI and basic tests (Vitest)
-
-Tell me which of the above you'd like next.
 
 
